@@ -1,0 +1,60 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Environment files
+.env
+!.env.example
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.npm/
+
+# Java / Maven / Backend
+target/
+*.class
+*.jar
+*.war
+.m2/
+
+# Python / AI Service
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv
+venv/
+ENV/
+*.log
+
+# Docker & local data
+volumes/
+minio-data/
+postgres-data/
+qdrant-data/

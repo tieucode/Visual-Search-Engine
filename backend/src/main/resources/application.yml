@@ -1,0 +1,61 @@
+server:
+  port: ${BACKEND_PORT:8080}
+
+spring:
+  application:
+    name: visual-search-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/visual_search_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 3000
+          max-attempts: 3
+
+# RabbitMQ Queues & Exchanges
+app:
+  rabbitmq:
+    exchange: visual.search.exchange
+    queue:
+      image-uploaded: image.uploaded.queue
+      image-indexed: image.indexed.queue
+    routing-key:
+      image-uploaded: image.uploaded
+      image-indexed: image.indexed
+
+# Custom Services Configuration
+ai-service:
+  url: ${AI_SERVICE_URL:http://localhost:8000}
+
+qdrant:
+  host: ${QDRANT_HOST:localhost}
+  port: ${QDRANT_PORT:6334}
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:miniopassword}
+  bucket-images: images
+  bucket-thumbnails: thumbnails
+
+jwt:
+  secret: ${JWT_SECRET:your_super_secret_jwt_key_at_least_256_bits_long_for_security}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
