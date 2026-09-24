@@ -28,19 +28,30 @@ spring:
           enabled: true
           initial-interval: 3000
           max-attempts: 3
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 500MB
 
-# RabbitMQ Queues & Exchanges
+# Custom app configuration
 app:
+  # RabbitMQ Queue & Exchange names
   rabbitmq:
     exchange: visual.search.exchange
     queue:
       image-uploaded: image.uploaded.queue
-      image-indexed: image.indexed.queue
     routing-key:
       image-uploaded: image.uploaded
-      image-indexed: image.indexed
 
-# Custom Services Configuration
+  # Upload configuration
+  upload:
+    max-file-size-mb: 20
+    allowed-formats: JPEG,JPG,PNG,WEBP,GIF,BMP
+    thumbnail-width-px: 400
+    batch-timeout-minutes: 15
+
+# External services
 ai-service:
   url: ${AI_SERVICE_URL:http://localhost:8000}
 

@@ -58,3 +58,5 @@ volumes/
 minio-data/
 postgres-data/
 qdrant-data/
+
+.fake
