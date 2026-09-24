@@ -49,7 +49,7 @@ public class ImageUploadService {
     private long maxFileSizeMb;
 
     // Điều phối xử lý upload một chunk ảnh (tối đa 20 ảnh).
-    public ImageUploadResponse uploadBatchChunk(ImageUploadRequest request, User currentUser) {
+    public ImageUploadResponse processUploadBatch(ImageUploadRequest request, User currentUser) {
         // 1. Kiểm tra BatchIndex
         BatchIndex batch = batchService.getBatchEntity(request.getBatchId());
         if (batch.getStatus() != BatchStatus.UPLOADING) {

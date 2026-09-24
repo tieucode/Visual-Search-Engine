@@ -1,4 +1,4 @@
-package com.visualsearch.dto.response;
+package com.visualsearch.dto.upload;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

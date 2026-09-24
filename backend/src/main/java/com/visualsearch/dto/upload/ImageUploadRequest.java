@@ -1,4 +1,4 @@
-package com.visualsearch.dto.request;
+package com.visualsearch.dto.upload;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
