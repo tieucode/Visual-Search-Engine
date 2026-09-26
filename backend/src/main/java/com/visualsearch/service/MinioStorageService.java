@@ -3,8 +3,10 @@ package com.visualsearch.service;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
+import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.http.Method;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,9 @@ public class MinioStorageService {
 
     @Value("${app.upload.thumbnail-width-px:400}")
     private int thumbnailWidthPx;
+
+    @Value("${minio.presigned-url-expiry-seconds:604800}")
+    private int presignedUrlExpirySeconds;
 
     @PostConstruct
     public void initBuckets() {
@@ -101,8 +106,17 @@ public class MinioStorageService {
     }
 
     public String getImageUrl(String objectName) {
-        String base = endpoint.replaceAll("/+$", "");
-        return base + "/" + bucketImages + "/" + objectName;
+        try {
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(bucketImages)
+                            .object(objectName)
+                            .expiry(presignedUrlExpirySeconds)
+                            .build());
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not create image download URL", exception);
+        }
     }
 
     public String getThumbnailUrl(String objectName) {

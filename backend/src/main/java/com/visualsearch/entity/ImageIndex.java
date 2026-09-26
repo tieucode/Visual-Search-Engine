@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "image_index")
+@Table(
+        name = "image_index",
+        uniqueConstraints = @UniqueConstraint(name = "uk_image_index_image_id", columnNames = "image_id"))
 @Getter
 @Setter
 @NoArgsConstructor
