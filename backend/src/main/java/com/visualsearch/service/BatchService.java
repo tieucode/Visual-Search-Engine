@@ -70,16 +70,26 @@ public class BatchService {
     }
 
     @Transactional
-    public void completeBatch(BatchIndex batch) {
-        if (batch.getStatus() == BatchStatus.UPLOADING) {
-            if (batch.getSuccessCount() + batch.getFailedCount() >= batch.getTotalImages()) {
-                batch.setStatus(BatchStatus.COMPLETED);
-            } else {
-                batch.setStatus(BatchStatus.PROCESSING);
-            }
+    public void completeBatch(UUID batchId) {
+        int updated = batchIndexRepository.closeUploadPhase(batchId, Instant.now());
+        if (updated == 1) {
+            BatchStatus status = batchIndexRepository.findById(batchId)
+                    .map(BatchIndex::getStatus)
+                    .orElseThrow(() -> new ResourceNotFoundException("Batch not found with id: " + batchId));
+            log.info("Batch {} marked as {} (upload phase completed)", batchId, status);
+        } else if (!batchIndexRepository.existsById(batchId)) {
+            throw new ResourceNotFoundException("Batch not found with id: " + batchId);
+        }
+    }
 
-            batchIndexRepository.save(batch);
-            log.info("Batch {} marked as {} (upload phase completed)", batch.getId(), batch.getStatus());
+    @Transactional
+    public void recordUploadFailures(UUID batchId, int failedCount) {
+        if (failedCount <= 0) {
+            return;
+        }
+        int updated = batchIndexRepository.incrementFailed(batchId, failedCount, Instant.now());
+        if (updated == 0) {
+            throw new ResourceNotFoundException("Batch not found with id: " + batchId);
         }
     }
 
@@ -94,9 +104,9 @@ public class BatchService {
 
         if (!stuckBatches.isEmpty()) {
             for (BatchIndex batch : stuckBatches) {
-                completeBatch(batch);
-                log.warn("Batch {} timed out after {} mins without upload activity. Status set to {}.",
-                        batch.getId(), batchTimeoutMinutes, batch.getStatus());
+                completeBatch(batch.getId());
+                log.warn("Batch {} timed out after {} mins without upload activity.",
+                        batch.getId(), batchTimeoutMinutes);
             }
         }
     }
