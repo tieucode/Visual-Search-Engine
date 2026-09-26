@@ -1,8 +1,8 @@
 package com.visualsearch.service;
 
 import com.visualsearch.dto.upload.BatchInitRequest;
-import com.visualsearch.dto.upload.BatchInitResponse;
-import com.visualsearch.dto.upload.BatchStatusResponse;
+import com.visualsearch.dto.upload.BatchInitData;
+import com.visualsearch.dto.upload.BatchStatusData;
 import com.visualsearch.entity.BatchIndex;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.BatchStatus;
@@ -32,7 +32,7 @@ public class BatchService {
 
     // Khởi tạo luồng upload mới
     @Transactional
-    public BatchInitResponse initBatch(BatchInitRequest request, User user) {
+    public BatchInitData initBatch(BatchInitRequest request, User user) {
         BatchIndex batch = BatchIndex.builder()
                 .uploadedBy(user)
                 .totalImages(request.getTotalImages())
@@ -43,14 +43,14 @@ public class BatchService {
 
         batch = batchIndexRepository.save(batch);
         log.info("Initialized batch {} with expected {} images", batch.getId(), batch.getTotalImages());
-        return new BatchInitResponse(batch.getId());
+        return new BatchInitData(batch.getId());
     }
 
     // Lấy thông tin và trạng thái của batch
     @Transactional(readOnly = true)
-    public BatchStatusResponse getBatchStatus(UUID batchId) {
+    public BatchStatusData getBatchStatus(UUID batchId) {
         BatchIndex batch = getBatchEntity(batchId);
-        return BatchStatusResponse.builder()
+        return BatchStatusData.builder()
                 .batchId(batch.getId())
                 .totalImages(batch.getTotalImages())
                 .successCount(batch.getSuccessCount())

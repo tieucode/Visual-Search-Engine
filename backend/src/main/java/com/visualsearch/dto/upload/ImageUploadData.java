@@ -13,7 +13,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ImageUploadResponse {
+public class ImageUploadData {
 
     private UUID batchId;
     private int uploadedCount;
