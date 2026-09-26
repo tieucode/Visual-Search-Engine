@@ -11,7 +11,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BatchInitResponse {
+public class BatchInitData {
 
     private UUID batchId;
 }

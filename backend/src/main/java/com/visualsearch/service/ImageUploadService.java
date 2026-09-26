@@ -1,7 +1,7 @@
 package com.visualsearch.service;
 
 import com.visualsearch.dto.upload.ImageUploadRequest;
-import com.visualsearch.dto.upload.ImageUploadResponse;
+import com.visualsearch.dto.upload.ImageUploadData;
 import com.visualsearch.entity.BatchIndex;
 import com.visualsearch.entity.Image;
 import com.visualsearch.entity.User;
@@ -49,7 +49,7 @@ public class ImageUploadService {
     private long maxFileSizeMb;
 
     // Điều phối xử lý upload một chunk ảnh (tối đa 20 ảnh).
-    public ImageUploadResponse processUploadBatch(ImageUploadRequest request, User currentUser) {
+    public ImageUploadData processUploadBatch(ImageUploadRequest request, User currentUser) {
         // 1. Kiểm tra BatchIndex
         BatchIndex batch = batchService.getBatchEntity(request.getBatchId());
         if (batch.getStatus() != BatchStatus.UPLOADING) {
@@ -119,7 +119,7 @@ public class ImageUploadService {
         // 6. Lấy lại batch để trả về trạng thái mới nhất
         BatchIndex updatedBatch = batchService.getBatchEntity(batch.getId());
 
-        return ImageUploadResponse.builder()
+        return ImageUploadData.builder()
                 .batchId(batch.getId())
                 .uploadedCount(successItems.size())
                 .failedCount(errors.size())

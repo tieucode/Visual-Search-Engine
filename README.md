@@ -96,3 +96,17 @@ docker compose up -d
 | **Qdrant** | `http://localhost:6333/dashboard` | Vector Database Web UI |
 | **MinIO Console** | `http://localhost:9001` | Quản lý Object Storage |
 | **RabbitMQ Management** | `http://localhost:15672` | RabbitMQ Web Management Dashboard (user: `guest`, pass: `guest`) |
+
+## 🔐 Xác thực API
+
+Backend sử dụng JWT access token duy nhất; không phát hành hay hỗ trợ refresh token. Token mặc định hết hạn sau 24 giờ (`JWT_EXPIRATION_MS=86400000`). Đặt một `JWT_SECRET` dài ít nhất 32 ký tự trong `.env` trước khi khởi động backend.
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Đăng ký: `POST /api/auth/register`
+- Đăng nhập: `POST /api/auth/login`
+- Upload: `POST /api/batches/{batchId}/images?isLast=false` (chọn ảnh tại trường `files` trong Swagger)
+- Với API yêu cầu xác thực, gửi header: `Authorization: Bearer <accessToken>`
+
+Swagger đã khai báo Bearer authentication cho các API cần bảo vệ. Dùng nút **Authorize** để dán access token sau khi đăng ký hoặc đăng nhập.
+
+Mọi API trả về cùng cấu trúc: `{ "status": 200, "message": "...", "timestamp": "...", "data": { ... } }`. Payload riêng của từng API luôn nằm trong `data`.
