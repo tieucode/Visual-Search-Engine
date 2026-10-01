@@ -1,9 +1,10 @@
-import React from 'react';
-
 export default function App() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
-      <h1>Visual Search Engine Frontend</h1>
-    </div>
+    <main className="app-placeholder page-container">
+      <div>
+        <h1>Vi<span className="text-gradient">Search</span></h1>
+        <p>Nền tảng frontend đã sẵn sàng.</p>
+      </div>
+    </main>
   );
 }
