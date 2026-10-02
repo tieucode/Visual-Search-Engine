@@ -1,0 +1,77 @@
+server:
+  port: ${INDEXING_SERVICE_PORT:8081}
+  shutdown: graceful
+
+spring:
+  application:
+    name: visual-search-indexing-service
+  lifecycle:
+    timeout-per-shutdown-phase: ${INDEXING_SHUTDOWN_TIMEOUT:60s}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/visual_search_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${INDEXING_DB_POOL_SIZE:8}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        concurrency: 1
+        max-concurrency: 1
+        retry:
+          enabled: false
+
+indexing:
+  max-retries: ${INDEXING_MAX_RETRIES:3}
+  rabbit:
+    exchange: ${RABBITMQ_EXCHANGE:visual.search.exchange}
+    queue: ${RABBITMQ_QUEUE_IMAGE_UPLOADED:image.uploaded.queue}
+    routing-key: ${RABBITMQ_ROUTING_KEY_UPLOADED:image.uploaded}
+    retry-exchange: ${RABBITMQ_RETRY_EXCHANGE:visual.search.retry.exchange}
+    retry-queue: ${RABBITMQ_RETRY_QUEUE:image.uploaded.retry.15m.queue}
+    retry-routing-key: ${RABBITMQ_RETRY_ROUTING_KEY:image.uploaded.retry}
+    dead-letter-exchange: ${RABBITMQ_DLX_EXCHANGE:visual.search.dlq.exchange}
+    dead-letter-queue: ${RABBITMQ_DLQ:image.uploaded.dlq}
+    dead-letter-routing-key: ${RABBITMQ_DLQ_ROUTING_KEY:image.uploaded.dlq}
+    retry-delay: ${INDEXING_RETRY_DELAY:15m}
+    publisher-confirm-timeout: ${RABBITMQ_PUBLISHER_CONFIRM_TIMEOUT:5s}
+    shutdown-timeout: ${INDEXING_SHUTDOWN_TIMEOUT:60s}
+  image:
+    max-bytes: ${INDEXING_MAX_IMAGE_BYTES:20971520}
+    max-pixels: ${INDEXING_MAX_IMAGE_PIXELS:40000000}
+    max-dimension: ${INDEXING_MAX_IMAGE_DIMENSION:1024}
+    max-batch-images: ${INDEXING_MAX_BATCH_IMAGES:20}
+    allowed-hosts: ${INDEXING_ALLOWED_IMAGE_HOSTS:minio,localhost}
+    connect-timeout: ${INDEXING_IMAGE_CONNECT_TIMEOUT:3s}
+    request-timeout: ${INDEXING_IMAGE_REQUEST_TIMEOUT:30s}
+  ai:
+    base-url: ${AI_SERVICE_BASE_URL:http://localhost:8000}
+    connect-timeout: ${AI_SERVICE_CONNECT_TIMEOUT:3s}
+    request-timeout: ${AI_SERVICE_TIMEOUT:60s}
+    health-check-interval: ${AI_HEALTH_CHECK_INTERVAL:30s}
+    health-path: ${AI_HEALTH_PATH:/health}
+    circuit:
+      failure-threshold: ${AI_CIRCUIT_FAILURE_THRESHOLD:5}
+      open-duration: ${AI_CIRCUIT_OPEN_DURATION:60s}
+  qdrant:
+    base-url: ${QDRANT_BASE_URL:http://localhost:6333}
+    collection: ${QDRANT_COLLECTION:images}
+    vector-size: ${QDRANT_VECTOR_SIZE:768}
+    connect-timeout: ${QDRANT_CONNECT_TIMEOUT:3s}
+    request-timeout: ${QDRANT_REQUEST_TIMEOUT:10s}

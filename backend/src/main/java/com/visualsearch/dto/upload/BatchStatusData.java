@@ -13,7 +13,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BatchStatusResponse {
+public class BatchStatusData {
 
     private UUID batchId;
     private Integer totalImages;
