@@ -1,8 +1,9 @@
 package com.visualsearch.controller;
 
 import com.visualsearch.dto.BaseResponse;
-import com.visualsearch.dto.upload.BatchInitRequest;
 import com.visualsearch.dto.upload.BatchInitData;
+import com.visualsearch.dto.upload.BatchInitRequest;
+import com.visualsearch.dto.upload.BatchPageData;
 import com.visualsearch.dto.upload.BatchStatusData;
 import com.visualsearch.entity.User;
 import com.visualsearch.service.BatchService;
@@ -23,13 +24,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
 /** REST endpoints for creating and monitoring image-upload batches. */
 @RestController
-@RequestMapping("/api/batches")
+@RequestMapping({"/api/uploads/batches", "/api/batches"})
 @RequiredArgsConstructor
 @Tag(name = "Batches", description = "Create and monitor image upload batches")
 @SecurityRequirement(name = "bearerAuth")
@@ -54,6 +56,20 @@ public class BatchController {
                         batchService.initBatch(request, currentUser)));
     }
 
+    @GetMapping
+    @Operation(summary = "List batches for the signed-in user with client-selected pagination")
+    public BaseResponse<BatchPageData> listBatches(
+            @RequestParam(defaultValue = "PROCESSING") String status,
+            @RequestParam(defaultValue = "createdAt,desc") String sort,
+            @RequestParam int page,
+            @RequestParam int size,
+            @AuthenticationPrincipal User currentUser) {
+        return BaseResponse.of(
+                HttpStatus.OK.value(),
+                "Batches retrieved successfully",
+                batchService.listBatches(currentUser, status, sort, page, size));
+    }
+
     @GetMapping("/{batchId}")
     @Operation(summary = "Get batch processing status")
     @ApiResponses({
@@ -61,10 +77,12 @@ public class BatchController {
             @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
             @ApiResponse(responseCode = "404", description = "Batch not found; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class)))
     })
-    public BaseResponse<BatchStatusData> getBatchStatus(@PathVariable UUID batchId) {
+    public BaseResponse<BatchStatusData> getBatchStatus(
+            @PathVariable UUID batchId,
+            @AuthenticationPrincipal User currentUser) {
         return BaseResponse.of(
                 HttpStatus.OK.value(),
                 "Batch status retrieved successfully",
-                batchService.getBatchStatus(batchId));
+                batchService.getBatchStatus(batchId, currentUser));
     }
 }

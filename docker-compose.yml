@@ -74,22 +74,22 @@ services:
     networks:
       - visual-search-net
 
-  ai-service:
-    build:
-      context: ./ai-service
-      dockerfile: Dockerfile
-    container_name: visual-search-ai-service
-    restart: unless-stopped
-    ports:
-      - "${AI_SERVICE_PORT:-8000}:8000"
-    environment:
-      APP_ENV: production
-      SIGLIP_MODEL_NAME: ${SIGLIP_MODEL_NAME:-google/siglip-base-patch16-224}
-      EASYOCR_LANGUAGES: ${EASYOCR_LANGUAGES:-en,vi}
-    volumes:
-      - ai_models_cache:/root/.cache
-    networks:
-      - visual-search-net
+  # ai-service:
+  #   build:
+  #     context: ./ai-service
+  #     dockerfile: Dockerfile
+  #   container_name: visual-search-ai-service
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${AI_SERVICE_PORT:-8000}:8000"
+  #   environment:
+  #     APP_ENV: production
+  #     SIGLIP_MODEL_NAME: ${SIGLIP_MODEL_NAME:-google/siglip-base-patch16-224}
+  #     EASYOCR_LANGUAGES: ${EASYOCR_LANGUAGES:-en,vi}
+  #   volumes:
+  #     - ai_models_cache:/root/.cache
+  #   networks:
+  #     - visual-search-net
 
   backend:
     build:
@@ -186,6 +186,38 @@ services:
       QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-768}
       QDRANT_CONNECT_TIMEOUT: ${QDRANT_CONNECT_TIMEOUT:-3s}
       QDRANT_REQUEST_TIMEOUT: ${QDRANT_REQUEST_TIMEOUT:-10s}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      # ai-service:
+      #   condition: service_started
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://localhost:8081/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - visual-search-net
+  frontend:
+    build:
+      context: ./indexing-service
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
+    container_name: visual-search-frontend
+    restart: unless-stopped
+    stop_grace_period: 90s
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       postgres:
         condition: service_healthy

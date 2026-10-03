@@ -1,0 +1,107 @@
+:root {
+  color-scheme: dark;
+
+  --bg-base: oklch(0.09 0.018 268);
+  --bg-surface: oklch(0.12 0.022 268);
+  --bg-elevated: oklch(0.16 0.026 268);
+  --bg-overlay: oklch(0.08 0.015 268 / 0.85);
+  --brand: oklch(0.55 0.24 268);
+  --brand-hover: oklch(0.62 0.22 268);
+  --brand-active: oklch(0.48 0.26 268);
+  --brand-glow: oklch(0.55 0.24 268 / 0.35);
+  --accent-violet: oklch(0.58 0.23 292);
+  --accent-cyan: oklch(0.72 0.15 200);
+  --accent-green: oklch(0.68 0.18 145);
+  --accent-amber: oklch(0.72 0.16 65);
+  --accent-red: oklch(0.62 0.22 27);
+  --text-primary: oklch(0.97 0.005 268);
+  --text-secondary: oklch(0.65 0.020 268);
+  --text-muted: oklch(0.45 0.015 268);
+  --text-disabled: oklch(0.35 0.010 268);
+  --border-subtle: oklch(1 0 0 / 0.07);
+  --border-medium: oklch(1 0 0 / 0.13);
+  --border-strong: oklch(0.55 0.24 268 / 0.40);
+  --color-success: var(--accent-green);
+  --color-warning: var(--accent-amber);
+  --color-error: var(--accent-red);
+  --color-info: var(--brand);
+
+  --gradient-brand: linear-gradient(135deg, var(--brand), var(--accent-violet));
+  --gradient-page-glow: radial-gradient(ellipse 80% 50% at 50% -5%, oklch(0.55 0.24 268 / 0.20), transparent);
+  --gradient-text: linear-gradient(135deg, oklch(0.75 0.18 268), oklch(0.72 0.20 292));
+  --glass-surface: oklch(0.14 0.022 268 / 0.80);
+  --glass-brand: oklch(0.55 0.24 268 / 0.10);
+  --brand-tint: oklch(0.55 0.24 268 / 0.05);
+  --brand-tint-border: oklch(0.55 0.24 268 / 0.25);
+  --focus-ring: oklch(0.55 0.24 268 / 0.15);
+  --shine: oklch(1 0 0 / 0.35);
+  --score-high: oklch(0.65 0.18 145 / 0.85);
+  --score-medium: oklch(0.72 0.16 65 / 0.85);
+  --score-low: oklch(0.50 0.05 268 / 0.85);
+  --score-text: oklch(1 0 0);
+  --scrollbar-thumb: oklch(0.55 0.24 268 / 0.25);
+  --scrollbar-thumb-hover: oklch(0.55 0.24 268 / 0.45);
+
+  --font-sans: "Inter Variable", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  --text-display: 3.5rem;
+  --text-4xl: 2.25rem;
+  --text-3xl: 1.875rem;
+  --text-2xl: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-lg: 1.125rem;
+  --text-base: 1rem;
+  --text-sm: 0.875rem;
+  --text-xs: 0.75rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  --shadow-card: 0 1px 3px oklch(0 0 0 / 0.25), 0 4px 12px oklch(0 0 0 / 0.20);
+  --shadow-card-hover: 0 4px 16px oklch(0.55 0.24 268 / 0.20), 0 16px 40px oklch(0 0 0 / 0.30);
+  --shadow-modal: 0 8px 32px oklch(0 0 0 / 0.40), 0 24px 64px oklch(0 0 0 / 0.30);
+  --shadow-glow: 0 0 24px oklch(0.55 0.24 268 / 0.40), 0 4px 16px oklch(0.55 0.24 268 / 0.25);
+  --shadow-glow-sm: 0 0 12px oklch(0.55 0.24 268 / 0.30);
+
+  --duration-instant: 50ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --header-height: 56px;
+  --content-form: 480px;
+  --content-centered: 720px;
+  --content-standard: 1024px;
+  --content-grid: 1280px;
+  /* CSS media queries use the corresponding literal values in components.css. */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+}
