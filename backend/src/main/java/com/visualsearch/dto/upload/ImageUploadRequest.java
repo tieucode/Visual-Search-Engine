@@ -25,6 +25,6 @@ public class ImageUploadRequest {
     private boolean isLast = false;
 
     @NotEmpty(message = "files cannot be empty")
-    @Size(min = 1, max = 20, message = "files must be between 1 and 20")
+    @Size(min = 1, max = 50, message = "files must be between 1 and 50")
     private List<MultipartFile> files;
 }

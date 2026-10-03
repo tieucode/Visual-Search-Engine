@@ -17,6 +17,7 @@ public class BatchStatusData {
 
     private UUID batchId;
     private Integer totalImages;
+    private Integer processedImages;
     private Integer successCount;
     private Integer failedCount;
     private BatchStatus status;

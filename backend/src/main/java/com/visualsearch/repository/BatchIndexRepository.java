@@ -2,6 +2,8 @@ package com.visualsearch.repository;
 
 import com.visualsearch.entity.BatchIndex;
 import com.visualsearch.enums.BatchStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -10,10 +12,15 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface BatchIndexRepository extends JpaRepository<BatchIndex, UUID> {
+
+    Optional<BatchIndex> findByIdAndUploadedById(UUID id, UUID userId);
+
+    Page<BatchIndex> findByUploadedByIdAndStatus(UUID userId, BatchStatus status, Pageable pageable);
 
     /**
      * Tìm tất cả các batch có trạng thái cụ thể và không được cập nhật kể từ thời
@@ -36,14 +43,17 @@ public interface BatchIndexRepository extends JpaRepository<BatchIndex, UUID> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             with actual as (
-                select count(*)\\:\\:int as cnt
+                select cast(count(*) as integer) as cnt,
+                       cast(count(*) filter (where status = 'FAILED') as integer) as indexed_failures
                   from image_index
                  where batch_id = :batchId
             )
             update batch_index b
-               set total_images = actual.cnt,
+               set total_images = actual.cnt + greatest(0, b.failed_count - actual.indexed_failures),
                    status       = case
-                                      when b.success_count + b.failed_count >= actual.cnt then 'COMPLETED'
+                                      when b.success_count + b.failed_count >=
+                                           actual.cnt + greatest(0, b.failed_count - actual.indexed_failures)
+                                      then 'COMPLETED'
                                       else 'PROCESSING'
                                   end,
                    updated_at   = :updatedAt

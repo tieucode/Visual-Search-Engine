@@ -83,23 +83,19 @@ public class MinioStorageService {
         try (InputStream is = file.getInputStream()) {
             Thumbnails.of(is)
                     .size(thumbnailWidthPx, thumbnailWidthPx)
+                    .outputFormat("jpg")
                     .outputQuality(0.85)
                     .toOutputStream(outputStream);
         }
 
         byte[] thumbBytes = outputStream.toByteArray();
-        String contentType = file.getContentType();
-        if (contentType == null || contentType.isBlank()) {
-            contentType = "image/jpeg";
-        }
-
         try (ByteArrayInputStream is = new ByteArrayInputStream(thumbBytes)) {
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucketThumbnails)
                             .object(thumbnailObjectName)
                             .stream(is, thumbBytes.length, -1)
-                            .contentType(contentType)
+                            .contentType("image/jpeg")
                             .build());
         }
         return thumbnailObjectName;
