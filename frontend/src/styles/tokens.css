@@ -34,6 +34,7 @@
   --brand-tint: oklch(0.55 0.24 268 / 0.05);
   --brand-tint-border: oklch(0.55 0.24 268 / 0.25);
   --focus-ring: oklch(0.55 0.24 268 / 0.15);
+  --shine: oklch(1 0 0 / 0.35);
   --score-high: oklch(0.65 0.18 145 / 0.85);
   --score-medium: oklch(0.72 0.16 65 / 0.85);
   --score-low: oklch(0.50 0.05 268 / 0.85);

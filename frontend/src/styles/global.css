@@ -19,7 +19,7 @@ h3 { font-size: var(--text-2xl); font-weight: 600; }
 .page-container { width: min(100% - 2 * var(--space-6), var(--content-standard)); margin-inline: auto; }
 .page-container--form { max-width: var(--content-form); }
 .page-container--centered { max-width: var(--content-centered); }
-.page-container--grid { max-width: var(--content-grid); }
+.page-container--grid { width: min(100% - 2 * var(--space-6), var(--content-grid)); max-width: var(--content-grid); }
 .text-gradient { background: var(--gradient-text); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .glass { background: var(--glass-surface); border: 1px solid var(--border-subtle); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .glass-brand { background: var(--glass-brand); border: 1px solid var(--brand-tint-border); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
