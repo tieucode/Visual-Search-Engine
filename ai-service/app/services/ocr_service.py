@@ -25,8 +25,7 @@ class OCRService:
 
         self.languages = languages
 
-        # GPU nếu device = cuda
-        use_gpu = settings.device.lower() == "cuda"
+        use_gpu = False
 
         self.reader = easyocr.Reader(
             languages,

@@ -10,8 +10,8 @@ class EmbeddingService:
     def __init__(self):
         print("Loading SigLIP model...")
 
-        # Device: CPU hoặc CUDA
-        self.device = torch.device(settings.device)
+        # Device: CPU 
+        self.device = torch.device("cpu")
 
         # Tên model lấy từ config.py
         self.model_name = settings.siglip_model
