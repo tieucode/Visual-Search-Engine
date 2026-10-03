@@ -74,22 +74,22 @@ services:
     networks:
       - visual-search-net
 
-  # ai-service:
-  #   build:
-  #     context: ./ai-service
-  #     dockerfile: Dockerfile
-  #   container_name: visual-search-ai-service
-  #   restart: unless-stopped
-  #   ports:
-  #     - "${AI_SERVICE_PORT:-8000}:8000"
-  #   environment:
-  #     APP_ENV: production
-  #     SIGLIP_MODEL_NAME: ${SIGLIP_MODEL_NAME:-google/siglip-base-patch16-224}
-  #     EASYOCR_LANGUAGES: ${EASYOCR_LANGUAGES:-en,vi}
-  #   volumes:
-  #     - ai_models_cache:/root/.cache
-  #   networks:
-  #     - visual-search-net
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: visual-search-ai-service
+    restart: unless-stopped
+    ports:
+      - "${AI_SERVICE_PORT:-8000}:8000"
+    environment:
+      APP_ENV: production
+      SIGLIP_MODEL_NAME: ${SIGLIP_MODEL_NAME:-google/siglip-base-patch16-224}
+      EASYOCR_LANGUAGES: ${EASYOCR_LANGUAGES:-en,vi}
+    volumes:
+      - ai_models_cache:/root/.cache
+    networks:
+      - visual-search-net
 
   backend:
     build:
