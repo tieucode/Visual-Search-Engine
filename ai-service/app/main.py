@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.indexing import router as indexing_router
 from app.api.process import router as process_router
 from app.api.embedding import router as embedding_router
 from app.api.ocr import router as ocr_router
@@ -22,6 +24,7 @@ app.add_middleware(
 # Routers
 # =========================
 
+app.include_router(indexing_router)
 app.include_router(process_router)
 app.include_router(embedding_router)
 app.include_router(ocr_router)

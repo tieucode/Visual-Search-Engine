@@ -1,49 +1,60 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from PIL import Image
 
-from app.services.image_preprocessing import preprocess_image
 from app.services.embedding_service import embedding_service
 from app.services.ocr_service import ocr_service
 
 
 class ImageProcessor:
-    def __init__(self):
-        self.embedding_service = embedding_service
-        self.ocr_service = ocr_service
 
-    def process_image(
+    def process(
         self,
-        image_bytes: bytes,
+        image: Image.Image,
+        image_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        if not image_bytes:
-            raise ValueError("Image không được để trống")
 
-        # ==========================================
-        # 1. Image Preprocessing
-        # ==========================================
+        # SigLIP
+        embedding = embedding_service.embed_image(image)
 
-        image = preprocess_image(image_bytes)
+        # EasyOCR
+        ocr_result = ocr_service.process(image)
 
-        # ==========================================
-        # 2. Image Embedding bằng SigLIP
-        # ==========================================
+        ocr_data = []
 
-        embedding = self.embedding_service.embed_image(image)
+        for detection in ocr_result["detections"]:
+            bounding_box = detection["bounding_box"]
 
-        # ==========================================
-        # 3. OCR bằng EasyOCR
-        # ==========================================
+            xs = [point[0] for point in bounding_box]
+            ys = [point[1] for point in bounding_box]
 
-        ocr_text = self.ocr_service.extract_text(image)
+            x = min(xs)
+            y = min(ys)
+            width = max(xs) - x
+            height = max(ys) - y
 
-        # ==========================================
-        # 4. Trả kết quả
-        # ==========================================
+            text = detection["text"]
+
+            ocr_data.append(
+                {
+                    "text": text,
+                    "normalizedText": text.lower().strip(),
+                    "confidence": detection["confidence"],
+                    "boundingBox": {
+                        "x": float(x),
+                        "y": float(y),
+                        "width": float(width),
+                        "height": float(height),
+                    },
+                }
+            )
 
         return {
+            "imageId": image_id,
+            "status": "SUCCESS",
             "embedding": embedding,
-            "ocr_text": ocr_text,
+            "ocr": ocr_data,
+            "error": None,
         }
 
 
-# Singleton
 image_processor = ImageProcessor()

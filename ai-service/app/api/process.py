@@ -1,4 +1,7 @@
+from io import BytesIO
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from PIL import Image, UnidentifiedImageError
 
 from app.services.image_processor import image_processor
 
@@ -16,9 +19,11 @@ async def process_image(file: UploadFile = File(...)):
     # ==========================================
 
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Tên file không hợp lệ")
+        raise HTTPException(
+            status_code=400,
+            detail="Tên file không hợp lệ",
+        )
 
-    # Kiểm tra content type
     allowed_content_types = {
         "image/jpeg",
         "image/png",
@@ -38,35 +43,67 @@ async def process_image(file: UploadFile = File(...)):
 
     try:
         # ==========================================
-        # 2. Đọc file thành bytes
+        # 2. Đọc file
         # ==========================================
 
         image_bytes = await file.read()
 
         if not image_bytes:
-            raise HTTPException(status_code=400, detail="File ảnh rỗng")
+            raise HTTPException(
+                status_code=400,
+                detail="File ảnh rỗng",
+            )
 
         # ==========================================
-        # 3. Gọi Image Processor
+        # 3. Decode ảnh bằng PIL
         # ==========================================
 
-        result = image_processor.process_image(image_bytes)
+        try:
+            image = Image.open(BytesIO(image_bytes))
+            image.load()
+
+        except (UnidentifiedImageError, OSError):
+            raise HTTPException(
+                status_code=400,
+                detail="Không thể đọc file ảnh",
+            )
+
+        # Đảm bảo RGB
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
         # ==========================================
-        # 4. Trả kết quả
+        # 4. Gọi Image Processor
+        # ==========================================
+
+        result = image_processor.process(
+            image=image,
+        )
+
+        # ==========================================
+        # 5. Trả kết quả
         # ==========================================
 
         return {
             "success": True,
             "filename": file.filename,
-            "embedding": result["embedding"],
-            "ocr_text": result["ocr_text"],
+            "embedding": result.get("embedding"),
+            "ocr": result.get("ocr", []),
         }
 
-    except ValueError as e:
+    except HTTPException:
+        raise
 
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
 
     except Exception as e:
+        print(f"Lỗi process-image: {e}")
 
-        raise HTTPException(status_code=500, detail=f"Lỗi xử lý ảnh: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi xử lý ảnh: {str(e)}",
+        )
