@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/batches")
+@RequestMapping({"/api/uploads/batches", "/api/batches"})
 @RequiredArgsConstructor
 @Tag(name = "Images", description = "Upload image chunks into a batch")
 @SecurityRequirement(name = "bearerAuth")
@@ -37,7 +37,7 @@ public class ImageUploadController {
 
     @PostMapping(value = "/{batchId}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
-            summary = "Upload up to 20 images to a batch",
+            summary = "Upload up to 50 images to a batch",
             description = "Select one or more files in Swagger's files control. Set isLast=true only on the final upload request for the batch.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Upload result is in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
@@ -45,12 +45,12 @@ public class ImageUploadController {
             @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class)))
     })
     public BaseResponse<ImageUploadData> uploadImages(
-            @Parameter(description = "Batch ID returned by POST /api/batches/init", required = true)
+            @Parameter(description = "Batch ID returned by POST /api/uploads/batches/init", required = true)
             @PathVariable java.util.UUID batchId,
             @Parameter(description = "Marks this as the final upload request for the batch", example = "false")
             @RequestParam(defaultValue = "false") boolean isLast,
             @Parameter(
-                    description = "One to twenty image files. Swagger displays a file picker for this field.",
+                    description = "One to fifty JPEG, PNG, or WebP files. Swagger displays a file picker for this field.",
                     required = true,
                     content = @Content(array = @ArraySchema(schema = @Schema(type = "string", format = "binary"))))
             @RequestPart("files") java.util.List<MultipartFile> files,

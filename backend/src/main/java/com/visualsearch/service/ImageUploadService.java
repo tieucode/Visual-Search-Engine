@@ -7,8 +7,11 @@ import com.visualsearch.entity.Image;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.BatchStatus;
 import com.visualsearch.enums.ImageFormat;
+import com.visualsearch.enums.IndexStatus;
 import com.visualsearch.event.ImageIndexingMessage;
 import com.visualsearch.exception.BadRequestException;
+import com.visualsearch.repository.ImageIndexRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,8 +21,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -28,21 +35,29 @@ import java.util.concurrent.Executor;
 @RequiredArgsConstructor
 public class ImageUploadService {
 
+    private static final int MAX_INDEXING_MESSAGE_IMAGES = 20;
+
     private final MinioStorageService minioStorageService;
     private final BatchService batchService;
     private final IndexingJobPersistenceService indexingJobPersistenceService;
     private final IndexingMessagePublisher indexingMessagePublisher;
+    private final ImageIndexRepository imageIndexRepository;
 
     @Qualifier("uploadExecutor")
     private final Executor uploadExecutor;
 
-    @Value("${app.upload.max-file-size-mb:20}")
+    @Value("${app.upload.max-file-size-mb:10}")
     private long maxFileSizeMb;
 
-    // Điều phối xử lý upload một chunk ảnh (tối đa 20 ảnh).
+    @PostConstruct
+    public void registerImageReaders() {
+        ImageIO.scanForPlugins();
+    }
+
+    // Điều phối xử lý upload một chunk ảnh (tối đa 50 ảnh).
     public ImageUploadData processUploadBatch(ImageUploadRequest request, User currentUser) {
         // 1. Kiểm tra BatchIndex
-        BatchIndex batch = batchService.getBatchEntity(request.getBatchId());
+        BatchIndex batch = batchService.getBatchEntity(request.getBatchId(), currentUser);
         if (batch.getStatus() != BatchStatus.UPLOADING) {
             throw new BadRequestException("Batch is not accepting uploads. Current status: " + batch.getStatus());
         }
@@ -51,8 +66,15 @@ public class ImageUploadService {
         if (files == null || files.isEmpty()) {
             throw new BadRequestException("No files provided for upload");
         }
-        if (files.size() > 20) {
-            throw new BadRequestException("A maximum of 20 images can be uploaded per request");
+        if (files.size() > 50) {
+            throw new BadRequestException("A maximum of 50 images can be uploaded per request");
+        }
+
+        int savedImages = imageIndexRepository.countByBatchId(batch.getId());
+        int indexedFailures = imageIndexRepository.countByBatchIdAndStatus(batch.getId(), IndexStatus.FAILED);
+        int uploadFailures = Math.max(0, batch.getFailedCount() - indexedFailures);
+        if (savedImages + uploadFailures + files.size() > batch.getTotalImages()) {
+            throw new BadRequestException("Upload exceeds the number of images declared for this batch");
         }
 
         long maxFileSizeBytes = maxFileSizeMb * 1024 * 1024;
@@ -65,8 +87,6 @@ public class ImageUploadService {
                 .toList();
 
         // 3. Đợi toàn bộ các ảnh trong chunk hoàn thành
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
         List<ImageIndexingMessage.ImageItem> successItems = new ArrayList<>();
         List<String> errors = new ArrayList<>();
 
@@ -84,10 +104,14 @@ public class ImageUploadService {
             }
         }
 
-        // 4. Bắn 1 Message duy nhất vào RabbitMQ cho toàn bộ ảnh thành công
+        // The worker accepts at most 20 images per message, even when an HTTP chunk has 50.
         if (!successItems.isEmpty()) {
-            indexingMessagePublisher.publish(new ImageIndexingMessage(successItems));
-            log.info("Dispatched indexing message for batch {} with {} images", batch.getId(), successItems.size());
+            for (int start = 0; start < successItems.size(); start += MAX_INDEXING_MESSAGE_IMAGES) {
+                List<ImageIndexingMessage.ImageItem> items = List.copyOf(successItems.subList(
+                        start, Math.min(start + MAX_INDEXING_MESSAGE_IMAGES, successItems.size())));
+                indexingMessagePublisher.publish(new ImageIndexingMessage(items));
+            }
+            log.info("Dispatched indexing messages for batch {} with {} images", batch.getId(), successItems.size());
         }
 
         if (!errors.isEmpty()) {
@@ -101,7 +125,7 @@ public class ImageUploadService {
         }
 
         // 6. Lấy lại batch để trả về trạng thái mới nhất
-        BatchIndex updatedBatch = batchService.getBatchEntity(batch.getId());
+        BatchIndex updatedBatch = batchService.getBatchEntity(batch.getId(), currentUser);
 
         return ImageUploadData.builder()
                 .batchId(batch.getId())
@@ -118,6 +142,9 @@ public class ImageUploadService {
             UUID batchId,
             UUID userId,
             long maxFileSizeBytes) {
+        if (file == null || file.isEmpty()) {
+            return SingleImageResult.failure("Empty image file is not allowed");
+        }
         String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "unnamed";
         String extension = getFileExtension(originalFilename);
 
@@ -125,7 +152,7 @@ public class ImageUploadService {
         ImageFormat imageFormat = parseImageFormat(extension);
         if (imageFormat == null) {
             return SingleImageResult.failure(originalFilename + ": Unsupported format '" + extension
-                    + "'. Allowed formats: " + Arrays.toString(ImageFormat.values()));
+                    + "'. Allowed formats: JPEG, JPG, PNG, WEBP");
         }
 
         // Validate size
@@ -138,23 +165,26 @@ public class ImageUploadService {
         String thumbObjectName = null;
         boolean persisted = false;
         try {
+            validateImageContent(file, imageFormat);
+
             // Đọc kích thước ảnh width x height
-            int width = 0;
-            int height = 0;
+            int width;
+            int height;
             try (InputStream is = file.getInputStream()) {
                 BufferedImage bi = ImageIO.read(is);
-                if (bi != null) {
-                    width = bi.getWidth();
-                    height = bi.getHeight();
+                if (bi == null) {
+                    throw new BadRequestException("Image cannot be decoded");
                 }
-            } catch (Exception e) {
-                log.warn("Could not read image dimensions for {}: {}", originalFilename, e.getMessage());
+                width = bi.getWidth();
+                height = bi.getHeight();
+            } catch (IOException e) {
+                throw new BadRequestException("Image cannot be decoded");
             }
 
             // Đặt tên file ngẫu nhiên trên MinIO
             String fileId = UUID.randomUUID().toString();
-            originalObjectName = fileId + "." + extension.toLowerCase();
-            thumbObjectName = fileId + "_thumb." + extension.toLowerCase();
+            originalObjectName = fileId + "." + extension.toLowerCase(Locale.ROOT);
+            thumbObjectName = fileId + "_thumb.jpg";
 
             // Upload ảnh gốc lên MinIO
             minioStorageService.uploadImage(file, originalObjectName);
@@ -212,9 +242,48 @@ public class ImageUploadService {
             return null;
         }
         try {
-            return ImageFormat.valueOf(extension.toUpperCase());
+            ImageFormat format = ImageFormat.valueOf(extension.toUpperCase(Locale.ROOT));
+            return switch (format) {
+                case JPEG, JPG, PNG, WEBP -> format;
+                default -> null;
+            };
         } catch (IllegalArgumentException e) {
             return null;
+        }
+    }
+
+    private void validateImageContent(MultipartFile file, ImageFormat format) throws Exception {
+        String contentType = file.getContentType();
+        boolean matchingType = switch (format) {
+            case JPEG, JPG -> "image/jpeg".equalsIgnoreCase(contentType)
+                    || "image/jpg".equalsIgnoreCase(contentType);
+            case PNG -> "image/png".equalsIgnoreCase(contentType);
+            case WEBP -> "image/webp".equalsIgnoreCase(contentType);
+            default -> false;
+        };
+        if (!matchingType) {
+            throw new BadRequestException("File content type does not match its extension");
+        }
+
+        byte[] header;
+        try (InputStream input = file.getInputStream()) {
+            header = input.readNBytes(12);
+        }
+        boolean matchingHeader = switch (format) {
+            case JPEG, JPG -> header.length >= 3
+                    && (header[0] & 0xff) == 0xff && (header[1] & 0xff) == 0xd8
+                    && (header[2] & 0xff) == 0xff;
+            case PNG -> header.length >= 8
+                    && (header[0] & 0xff) == 0x89 && header[1] == 'P'
+                    && header[2] == 'N' && header[3] == 'G'
+                    && header[4] == 13 && header[5] == 10 && header[6] == 26 && header[7] == 10;
+            case WEBP -> header.length >= 12
+                    && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                    && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P';
+            default -> false;
+        };
+        if (!matchingHeader) {
+            throw new BadRequestException("File contents are not a supported image format");
         }
     }
 
