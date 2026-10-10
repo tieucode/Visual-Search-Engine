@@ -4,6 +4,8 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.GetObjectArgs;
+import com.visualsearch.exception.SearchDependencyException;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.http.Method;
@@ -26,6 +28,20 @@ public class MinioStorageService {
 
     private final MinioClient minioClient;
 
+    private MinioClient publicSigningClient;
+
+    @Value("${minio.public-endpoint:${minio.endpoint}}")
+    private String publicEndpoint;
+
+    @Value("${minio.access-key}")
+    private String accessKey;
+
+    @Value("${minio.secret-key}")
+    private String secretKey;
+
+    @Value("${minio.region:us-east-1}")
+    private String region;
+
     @Value("${minio.endpoint}")
     private String endpoint;
 
@@ -43,6 +59,9 @@ public class MinioStorageService {
 
     @PostConstruct
     public void initBuckets() {
+        // Explicit region makes signing local; containers need not reach the browser's public hostname.
+        publicSigningClient = MinioClient.builder().endpoint(publicEndpoint).region(region)
+                .credentials(accessKey, secretKey).build();
         createBucketIfNotExists(bucketImages);
         createBucketIfNotExists(bucketThumbnails);
     }
@@ -118,6 +137,40 @@ public class MinioStorageService {
     public String getThumbnailUrl(String objectName) {
         String base = endpoint.replaceAll("/+$", "");
         return base + "/" + bucketThumbnails + "/" + objectName;
+    }
+
+    public String getPresignedThumbnailUrl(String objectName) {
+        return getPublicDownloadUrl(bucketThumbnails, objectName);
+    }
+
+    public String getPublicImageUrl(String objectName) {
+        return getPublicDownloadUrl(bucketImages, objectName);
+    }
+
+    private String getPublicDownloadUrl(String bucket, String objectName) {
+        try {
+            return publicSigningClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                    .method(Method.GET).bucket(bucket).object(objectName)
+                    .expiry(presignedUrlExpirySeconds).build());
+        } catch (Exception exception) {
+            throw new SearchDependencyException("Could not create image download URL", exception);
+        }
+    }
+
+    /** Read only a server-owned object key, with a hard bound on allocated bytes. */
+    public byte[] readImage(String objectName, int maxBytes) {
+        try (InputStream input = minioClient.getObject(GetObjectArgs.builder()
+                .bucket(bucketImages).object(objectName).build())) {
+            byte[] bytes = input.readNBytes(maxBytes + 1);
+            if (bytes.length == 0 || bytes.length > maxBytes) {
+                throw new SearchDependencyException("Stored query image has an invalid size");
+            }
+            return bytes;
+        } catch (SearchDependencyException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new SearchDependencyException("Could not read stored query image", exception);
+        }
     }
 
     public void deleteImage(String objectName) {

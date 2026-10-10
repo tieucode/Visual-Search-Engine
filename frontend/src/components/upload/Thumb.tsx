@@ -34,10 +34,10 @@ export function Thumb({ file, fill = false, onOpen, onRemove }: ThumbProps) {
 
   return (
     <div ref={ref} className={`thumb ${fill ? 'thumb--fill' : ''}`.trim()}>
-      <button type="button" className="thumb__open" onClick={onOpen} aria-label={`Zoom ${file.name}`}>
+      <button type="button" className="thumb__open" onClick={onOpen} aria-label={`Xem ảnh ${file.name}`}>
         {src ? <img src={src} alt="" draggable={false} /> : <div className="thumb__skeleton skeleton" />}
       </button>
-      <button type="button" className="thumb__remove" onClick={onRemove} aria-label={`Remove ${file.name}`}>
+      <button type="button" className="thumb__remove" onClick={onRemove} aria-label={`Bỏ ảnh ${file.name}`}>
         <X size={12} strokeWidth={2.5} />
       </button>
     </div>

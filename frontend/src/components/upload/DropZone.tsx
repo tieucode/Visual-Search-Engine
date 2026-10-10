@@ -94,23 +94,24 @@ export function DropZone({ count, totalBytes, disabled, onFiles }: DropZoneProps
       data-active={active}
       role="button"
       tabIndex={0}
-      aria-label="Select images"
+      aria-label="Chọn ảnh để tải lên"
       aria-disabled={disabled}
       onClick={openPicker}
       onKeyDown={onKeyDown}
     >
       {count > 0 && (
-        <div className="upload-drop__stats" aria-label="Upload statistics">
-          <span className="upload-drop__stat-count">{formatNumber(count)} / {formatNumber(MAX_IMAGES)} images</span>
+        <div className="upload-drop__stats" aria-label="Ảnh đã chọn">
+          <span className="upload-drop__stat-count">{formatNumber(count)} / {formatNumber(MAX_IMAGES)} ảnh</span>
           <span className="upload-drop__stat-size">{formatBytes(totalBytes)}</span>
         </div>
       )}
 
-      <span className="upload-drop__icon"><UploadCloud size={28} strokeWidth={1.75} /></span>
-      <p className="upload-drop__title">Drop · Paste · <span className="upload-drop__link">Browse</span></p>
+      <span className="upload-drop__icon"><UploadCloud size={24} strokeWidth={1.5} aria-hidden="true" /></span>
+      <p className="upload-drop__title">Kéo ảnh vào đây hoặc <span className="upload-drop__link">chọn ảnh</span></p>
       <div className="upload-drop__meta">
-        <kbd className="kbd">Ctrl V</kbd>
-        <span className="badge">JPG · PNG · WEBP</span>
+        <span>JPG, PNG, WEBP</span>
+        <span aria-hidden="true">·</span>
+        <span>Dán bằng <kbd className="kbd">Ctrl + V</kbd></span>
       </div>
 
       <input

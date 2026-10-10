@@ -16,6 +16,7 @@ export function BatchCard({ batch, size = 'compact' }: BatchCardProps) {
       <div
         className="progress progress--thin progress--live"
         role="progressbar"
+        aria-label="Tiến trình xử lý ảnh"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}

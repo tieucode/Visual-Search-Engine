@@ -1,27 +1,20 @@
-import { Navigate, Outlet, Route, BrowserRouter, Routes } from 'react-router-dom';
+import { Activity } from 'lucide-react';
+import { Link, Navigate, Outlet, Route, BrowserRouter, Routes } from 'react-router-dom';
 import { ToastProvider } from './components/common/Toast';
 import { AppHeader } from './components/layout/AppHeader';
 import { AuthPage } from './pages/AuthPage';
 import { UploadPage } from './pages/UploadPage';
 import { getAccessToken } from './services/authToken';
-
-function HomePage() {
-  return (
-    <main className="app-placeholder page-container">
-      <div>
-        <h1>Visual <span className="text-gradient">Search Engine</span></h1>
-        <p>Đăng nhập thành công. Trang tìm kiếm sẽ được triển khai sau.</p>
-      </div>
-    </main>
-  );
-}
+import { SearchWorkspace } from './components/search/SearchWorkspace';
+import { SearchPage } from './pages/SearchPage/SearchPage';
+import { ImageDetailPage } from './pages/SearchPage/ImageDetailPage';
 
 function ProtectedLayout() {
   return getAccessToken() ? (
-    <>
+    <SearchWorkspace>
       <AppHeader />
       <Outlet />
-    </>
+    </SearchWorkspace>
   ) : <Navigate to="/login" replace />;
 }
 
@@ -35,15 +28,18 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<ProtectedLayout />}>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<SearchPage />} />
+            <Route path="/images/:imageId" element={<ImageDetailPage />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route
               path="/batches"
               element={
                 <main className="app-placeholder page-container">
                   <div>
-                    <h2>Tiến trình <span className="text-gradient">Indexing</span></h2>
-                    <p>Trang quản lý toàn bộ batches sẽ được triển khai sau.</p>
+                    <span className="app-placeholder__icon"><Activity size={22} aria-hidden="true" /></span>
+                    <h1>Tiến trình xử lý</h1>
+                    <p>Theo dõi các ảnh đang xử lý tại trang tải ảnh.</p>
+                    <Link to="/upload" className="button button--outline">Xem tiến trình</Link>
                   </div>
                 </main>
               }
