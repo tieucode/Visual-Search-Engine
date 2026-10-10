@@ -172,3 +172,11 @@ Backend sử dụng JWT access token duy nhất; không phát hành hay hỗ tr�
 Swagger đã khai báo Bearer authentication cho các API cần bảo vệ. Dùng nút **Authorize** để dán access token sau khi đăng ký hoặc đăng nhập.
 
 Mọi API trả về cùng cấu trúc: `{ "status": 200, "message": "...", "timestamp": "...", "data": { ... } }`. Payload riêng của từng API luôn nằm trong `data`.
+
+## Tìm kiếm bằng ảnh
+
+- Tìm mới: `POST /api/search/image?size=20`, multipart field `file`.
+- Cuộn tải thêm: `GET /api/search/image/{searchId}/results?cursor=<nextCursor>`.
+- Mỗi lần tìm mới tạo một lịch sử; tải thêm giữ nguyên `searchId`, không tạo thêm lịch sử.
+
+Xem [API contract, cấu hình và hướng dẫn infinite scroll](docs/search-by-image.md).

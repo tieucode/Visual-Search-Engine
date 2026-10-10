@@ -101,37 +101,42 @@ public class IndexingProcessor {
             return result(retries, counters, started);
         }
 
-        AiBatchResponse aiResponse;
-        try {
-            aiResponse = aiServiceClient.index(
-                    prepared.stream().map(PreparedWork::image).toList(),
-                    () -> markBatchRetryStarted(prepared, currentAttempt));
-        } catch (AiCircuitOpenException exception) {
-            addRetry(retries, currentAttempt, prepared.stream().map(PreparedWork::item).toList());
-            return result(retries, counters, started);
-        } catch (AiServiceException exception) {
-            for (PreparedWork work : prepared) {
-                if (exception.isRetryable()) {
-                    handleTransient(
-                            work.item(),
-                            work.state(),
-                            currentAttempt,
-                            exception.getMessage(),
-                            currentAttempt > 0,
-                            retries,
-                            counters);
-                } else if (stateService.recordPermanentFailure(
-                        work.item().imageId(), work.state().getBatchId(), currentAttempt, exception.getMessage())) {
-                    counters.failed++;
-                } else {
-                    counters.skipped++;
-                }
+        int aiBatchSize = properties.getAi().getBatchSize();
+        for (int start = 0; start < prepared.size(); start += aiBatchSize) {
+            List<PreparedWork> aiBatch = prepared.subList(
+                    start, Math.min(start + aiBatchSize, prepared.size()));
+            try {
+                AiBatchResponse aiResponse = aiServiceClient.index(
+                        aiBatch.stream().map(PreparedWork::image).toList(),
+                        () -> markBatchRetryStarted(aiBatch, currentAttempt));
+                applyAiResults(aiBatch, aiResponse, currentAttempt, retries, counters);
+            } catch (AiCircuitOpenException exception) {
+                addRetry(retries, currentAttempt, aiBatch.stream().map(PreparedWork::item).toList());
+            } catch (AiServiceException exception) {
+                handleAiRequestFailure(aiBatch, exception, currentAttempt, retries, counters);
             }
-            return result(retries, counters, started);
         }
-
-        applyAiResults(prepared, aiResponse, currentAttempt, retries, counters);
         return result(retries, counters, started);
+    }
+
+    private void handleAiRequestFailure(
+            List<PreparedWork> aiBatch,
+            AiServiceException exception,
+            int currentAttempt,
+            Map<Integer, List<ImageIndexingMessage.ImageItem>> retries,
+            Counters counters) {
+        for (PreparedWork work : aiBatch) {
+            if (exception.isRetryable()) {
+                handleTransient(
+                        work.item(), work.state(), currentAttempt, exception.getMessage(),
+                        currentAttempt > 0, retries, counters);
+            } else if (stateService.recordPermanentFailure(
+                    work.item().imageId(), work.state().getBatchId(), currentAttempt, exception.getMessage())) {
+                counters.failed++;
+            } else {
+                counters.skipped++;
+            }
+        }
     }
 
     private List<ImageIndexingMessage.ImageItem> validate(ImageIndexingMessage message, int currentAttempt) {

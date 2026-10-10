@@ -31,6 +31,7 @@ public class AiServiceClient {
     public AiServiceClient(IndexingProperties properties, AiCircuitBreaker aiCircuitBreaker) {
         IndexingProperties.Ai ai = properties.getAi();
         HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(ai.getConnectTimeout())
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);

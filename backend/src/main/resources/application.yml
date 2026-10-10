@@ -32,6 +32,21 @@ spring:
 
 # Custom app configuration
 app:
+  search:
+    max-image-bytes: ${SEARCH_MAX_IMAGE_BYTES:10485760}
+    max-image-pixels: ${SEARCH_MAX_IMAGE_PIXELS:40000000}
+    ai:
+      base-url: ${AI_SERVICE_BASE_URL:http://localhost:8000}
+      connect-timeout: ${AI_SERVICE_CONNECT_TIMEOUT:3s}
+      request-timeout: ${AI_SERVICE_TIMEOUT:60s}
+    qdrant:
+      base-url: ${QDRANT_BASE_URL:http://localhost:6333}
+      collection: ${QDRANT_COLLECTION:images}
+      vector-size: ${QDRANT_VECTOR_SIZE:768}
+      connect-timeout: ${QDRANT_CONNECT_TIMEOUT:3s}
+      request-timeout: ${QDRANT_REQUEST_TIMEOUT:10s}
+  indexing:
+    max-message-images: ${INDEXING_MAX_BATCH_IMAGES:20}
   # RabbitMQ Queue & Exchange names
   rabbitmq:
     exchange: ${RABBITMQ_EXCHANGE:visual.search.exchange}
@@ -52,10 +67,12 @@ app:
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  public-endpoint: ${MINIO_PUBLIC_ENDPOINT:${minio.endpoint}}
+  region: ${MINIO_REGION:us-east-1}
   access-key: ${MINIO_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_SECRET_KEY:miniopassword}
-  bucket-images: images
-  bucket-thumbnails: thumbnails
+  bucket-images: ${MINIO_BUCKET_IMAGES:images}
+  bucket-thumbnails: ${MINIO_BUCKET_THUMBNAILS:thumbnails}
   presigned-url-expiry-seconds: ${MINIO_PRESIGNED_URL_EXPIRY_SECONDS:604800}
 
 jwt:
