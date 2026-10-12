@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { QueueItem } from '../../hooks/useImageQueue';
-import '../../styles/layout.css';
+import { ImageViewer } from '../common/ImageViewer';
 
 interface LightboxProps {
   /** Items in display order (newest first). */
@@ -15,14 +13,14 @@ interface LightboxProps {
 export function Lightbox({ items, currentId, onChange, onClose }: LightboxProps) {
   const index = items.findIndex((item) => item.id === currentId);
   const current = items[index];
-  const [src, setSrc] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ file: File; src: string } | null>(null);
 
   useEffect(() => {
     if (!current) return;
     const url = URL.createObjectURL(current.file);
-    setSrc(url);
+    setPreview({ file: current.file, src: url });
     return () => URL.revokeObjectURL(url);
-  }, [current]);
+  }, [current?.file]);
 
   useEffect(() => {
     if (!current) onClose();
@@ -33,39 +31,14 @@ export function Lightbox({ items, currentId, onChange, onClose }: LightboxProps)
     if (next) onChange(next.id);
   };
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-      else if (event.key === 'ArrowLeft') go(-1);
-      else if (event.key === 'ArrowRight') go(1);
-      else return;
-      event.preventDefault();
-      event.stopPropagation(); // Keep Esc from also closing a modal underneath.
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  });
-
   if (!current) return null;
 
-  return createPortal(
-    <div
-      className="modal-overlay lightbox"
-      role="dialog"
-      aria-modal="true"
-      aria-label={current.file.name}
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
-    >
-      <button type="button" className="lightbox__close icon-button" onClick={onClose} aria-label="Close"><X size={20} /></button>
-      {items.length > 1 && (
-        <>
-          <button type="button" className="lightbox__nav lightbox__nav--prev" onClick={() => go(-1)} aria-label="Previous"><ChevronLeft size={22} /></button>
-          <button type="button" className="lightbox__nav lightbox__nav--next" onClick={() => go(1)} aria-label="Next"><ChevronRight size={22} /></button>
-        </>
-      )}
-      {src && <img key={current.id} className="lightbox__img" src={src} alt={current.file.name} draggable={false} />}
-      <span className="lightbox__count">{index + 1} / {items.length}</span>
-    </div>,
-    document.body,
-  );
+  return <ImageViewer
+    src={preview?.file === current.file ? preview.src : null}
+    alt={current.file.name}
+    onClose={onClose}
+    onPrevious={items.length > 1 ? () => go(-1) : undefined}
+    onNext={items.length > 1 ? () => go(1) : undefined}
+    count={items.length > 1 ? `${index + 1} / ${items.length}` : undefined}
+  />;
 }

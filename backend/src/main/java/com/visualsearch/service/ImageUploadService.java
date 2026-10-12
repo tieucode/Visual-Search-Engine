@@ -35,8 +35,6 @@ import java.util.concurrent.Executor;
 @RequiredArgsConstructor
 public class ImageUploadService {
 
-    private static final int MAX_INDEXING_MESSAGE_IMAGES = 20;
-
     private final MinioStorageService minioStorageService;
     private final BatchService batchService;
     private final IndexingJobPersistenceService indexingJobPersistenceService;
@@ -49,8 +47,14 @@ public class ImageUploadService {
     @Value("${app.upload.max-file-size-mb:10}")
     private long maxFileSizeMb;
 
+    @Value("${app.indexing.max-message-images}")
+    private int maxIndexingMessageImages;
+
     @PostConstruct
     public void registerImageReaders() {
+        if (maxIndexingMessageImages < 1) {
+            throw new IllegalStateException("Indexing message size must be at least 1");
+        }
         ImageIO.scanForPlugins();
     }
 
@@ -104,11 +108,11 @@ public class ImageUploadService {
             }
         }
 
-        // The worker accepts at most 20 images per message, even when an HTTP chunk has 50.
+        // Match the worker's configured maximum message size.
         if (!successItems.isEmpty()) {
-            for (int start = 0; start < successItems.size(); start += MAX_INDEXING_MESSAGE_IMAGES) {
+            for (int start = 0; start < successItems.size(); start += maxIndexingMessageImages) {
                 List<ImageIndexingMessage.ImageItem> items = List.copyOf(successItems.subList(
-                        start, Math.min(start + MAX_INDEXING_MESSAGE_IMAGES, successItems.size())));
+                        start, Math.min(start + maxIndexingMessageImages, successItems.size())));
                 indexingMessagePublisher.publish(new ImageIndexingMessage(items));
             }
             log.info("Dispatched indexing messages for batch {} with {} images", batch.getId(), successItems.size());

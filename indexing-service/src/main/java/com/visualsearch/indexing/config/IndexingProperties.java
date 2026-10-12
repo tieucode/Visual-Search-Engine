@@ -92,6 +92,8 @@ public class IndexingProperties {
     public static class Ai {
         @NotBlank
         private String baseUrl = "http://localhost:8000";
+        @Min(1)
+        private int batchSize;
         @NotNull
         private Duration connectTimeout = Duration.ofSeconds(3);
         @NotNull

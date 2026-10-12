@@ -9,5 +9,8 @@ export function setAccessToken(token: string): void {
 }
 
 export function clearAccessToken(): void {
-  if (typeof window !== 'undefined') window.sessionStorage.removeItem(TOKEN_KEY);
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem('visearch.searchImages');
+  }
 }

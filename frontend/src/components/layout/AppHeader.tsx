@@ -1,31 +1,31 @@
-import { LogOut, ScanSearch, Search, UploadCloud } from 'lucide-react';
+import { LogOut, UploadCloud } from 'lucide-react';
+import horizontalLogo from '../../assets/brand/visearch-logo-horizontal.png';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { clearAccessToken } from '../../services/authToken';
+import { HeaderSearch } from '../search/HeaderSearch';
 import '../../styles/layout.css';
 
 export function AppHeader() {
   const navigate = useNavigate();
 
   return (
-    <header className="app-header glass">
+    <header className="app-header">
       <div className="app-header__inner page-container page-container--grid">
         <Link className="app-header__brand" to="/" aria-label="ViSearch">
-          <span className="app-header__mark"><ScanSearch size={18} strokeWidth={2.25} /></span>
-          <span>Vi<span className="text-gradient">Search</span></span>
+          <img className="app-header__logo" src={horizontalLogo} alt="ViSearch" />
         </Link>
 
-        <nav className="app-header__nav" aria-label="Main">
-          <NavLink to="/" end className="icon-button" aria-label="Search" title="Search">
-            <Search size={18} />
-          </NavLink>
-          <NavLink to="/upload" className="icon-button" aria-label="Upload" title="Upload">
-            <UploadCloud size={18} />
+        <HeaderSearch />
+        <nav className="app-header__nav" aria-label="Điều hướng chính">
+          <NavLink to="/upload" className="app-header__nav-link" aria-label="Tải ảnh" title="Tải ảnh">
+            <UploadCloud size={18} aria-hidden="true" />
+            <span>Tải ảnh</span>
           </NavLink>
           <button
             type="button"
-            className="icon-button"
-            aria-label="Sign out"
-            title="Sign out"
+            className="icon-button app-header__logout"
+            aria-label="Đăng xuất"
+            title="Đăng xuất"
             onClick={() => {
               clearAccessToken();
               navigate('/login', { replace: true });

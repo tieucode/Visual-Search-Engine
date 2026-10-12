@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -68,7 +69,14 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.PAYLOAD_TOO_LARGE, "Upload request exceeds the configured size limit", request, null);
     }
 
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    @ExceptionHandler(SearchDependencyException.class)
+    public ResponseEntity<BaseResponse<ApiErrorData>> handleSearchDependency(
+            SearchDependencyException exception, HttpServletRequest request) {
+        return error(HttpStatus.BAD_GATEWAY, exception.getMessage(), request, null);
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class,
+            MissingServletRequestPartException.class})
     public ResponseEntity<BaseResponse<ApiErrorData>> handleInvalidParameter(HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "Invalid or missing request parameter", request, null);
     }

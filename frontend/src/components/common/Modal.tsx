@@ -51,7 +51,7 @@ export function Modal({ label, onClose, size = 'md', title, actions, children }:
             <div className="modal__actions">
               {actions}
               {onClose && (
-                <button type="button" className="icon-button icon-button--sm" onClick={onClose} aria-label="Close">
+                <button type="button" className="icon-button icon-button--sm" onClick={onClose} aria-label="Đóng">
                   <X size={18} />
                 </button>
               )}

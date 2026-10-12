@@ -103,9 +103,9 @@ export function UploadPage() {
 
   return (
     <main className="upload-page page-container page-container--grid">
-      <h1 className="sr-only">Upload</h1>
+      <h1 className="sr-only">Tải ảnh</h1>
 
-      <section className="upload-main animate-enter" aria-label="Upload">
+      <section className="upload-main" aria-label="Tải ảnh">
         <DropZone count={queue.items.length} totalBytes={queue.totalBytes} disabled={uploading} onFiles={handleFiles} />
 
         {queue.items.length > 0 && (
@@ -113,15 +113,15 @@ export function UploadPage() {
             <PreviewStrip items={queue.items} onRemove={queue.remove} onZoom={setZoomId} onViewAll={() => setShowImages(true)} />
             <Button size="large" className="upload-submit" onClick={handleUpload} disabled={uploading}>
               <UploadCloud size={18} aria-hidden="true" />
-              Upload {formatNumber(queue.items.length)}
+              Tải lên {formatNumber(queue.items.length)} ảnh
             </Button>
           </>
         )}
       </section>
 
-      <aside className="upload-side animate-enter" aria-label="Index process">
+      <aside className="upload-side" aria-label="Tiến trình xử lý">
         <div className="side-head">
-          <h2 className="side-head__title">Index process</h2>
+          <h2 className="side-head__title">Đang xử lý</h2>
           <Link to="/batches" className="link-button" aria-label="Xem tất cả tiến trình">
             Xem tất cả
             <ChevronRight size={14} aria-hidden="true" />
@@ -131,7 +131,7 @@ export function UploadPage() {
         <div className="batch-list">
           {!loaded && Array.from({ length: 2 }, (_, index) => <div key={index} className="batch-skeleton skeleton" />)}
           {loaded && visibleBatches.map((batch) => <BatchCard key={batch.batchId} batch={batch} />)}
-          {loaded && batches.length === 0 && <div className="batch-empty"><Activity size={16} aria-hidden="true" />Idle</div>}
+          {loaded && batches.length === 0 && <div className="batch-empty"><Activity size={20} aria-hidden="true" />Chưa có ảnh đang xử lý</div>}
         </div>
       </aside>
 
