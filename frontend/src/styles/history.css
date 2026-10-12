@@ -1,0 +1,143 @@
+
+
+.upload-history {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px;
+  color: var(--text-primary, #202124);
+}
+
+.upload-history__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.upload-history__header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.upload-history__header p {
+  margin: 0;
+  color: var(--text-secondary, #6b7280);
+}
+
+.upload-history__count {
+  color: var(--text-secondary, #6b7280);
+  font-size: 14px;
+}
+
+.upload-history__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.upload-card {
+  overflow: hidden;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  background: var(--card-bg, #fff);
+}
+
+.upload-card__preview {
+  display: flex;
+  height: 190px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--preview-bg, #f3f4f6);
+}
+
+.upload-card__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.upload-card__body {
+  padding: 14px;
+}
+
+.upload-card__format {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--tag-bg, #eef2ff);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-card__body p {
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.upload-card__body time {
+  display: block;
+  color: var(--text-secondary, #6b7280);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.upload-history__state,
+.upload-history__empty {
+  padding: 48px 20px;
+  text-align: center;
+  border: 1px dashed var(--border-color, #d1d5db);
+  border-radius: 12px;
+}
+
+.upload-history__error {
+  color: #b91c1c;
+}
+
+.upload-history__pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 28px;
+}
+
+.upload-history__pagination button,
+.upload-history__error button {
+  padding: 10px 16px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  background: var(--card-bg, #fff);
+  cursor: pointer;
+}
+
+.upload-history__pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 600px) {
+  .upload-history {
+    padding: 16px;
+  }
+
+  .upload-history__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .upload-history__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .upload-card__preview {
+    height: 140px;
+  }
+
+  .upload-history__pagination {
+    gap: 10px;
+    font-size: 13px;
+  }
+}

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # Vietnamese + English
     ocr_languages: str = "vi,en"
 
-    # cpu / cuda
+    # cpu 
     device: str = "cpu"
 
     model_cache_dir: str = "./models"

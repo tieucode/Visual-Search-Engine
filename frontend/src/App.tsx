@@ -8,6 +8,7 @@ import { getAccessToken } from './services/authToken';
 import { SearchWorkspace } from './components/search/SearchWorkspace';
 import { SearchPage } from './pages/SearchPage/SearchPage';
 import { ImageDetailPage } from './pages/SearchPage/ImageDetailPage';
+import { UploadHistoryPage } from "./pages/UploadHistoryPage";
 
 function ProtectedLayout() {
   return getAccessToken() ? (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/" element={<SearchPage />} />
             <Route path="/images/:imageId" element={<ImageDetailPage />} />
             <Route path="/upload" element={<UploadPage />} />
+            <Route path="/upload/history" element={<UploadHistoryPage />} />
             <Route
               path="/batches"
               element={

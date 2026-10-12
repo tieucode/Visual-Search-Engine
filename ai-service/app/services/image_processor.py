@@ -1,10 +1,33 @@
+import re
+import time
+import unicodedata
 from typing import Any, Dict, Optional
 from PIL import Image
 
 from app.services.embedding_service import embedding_service
 from app.services.ocr_service import ocr_service
 
+def normalize_text(text: str) -> str:
+    """Chuyển văn bản thành chữ thường, không dấu và chuẩn hóa khoảng trắng."""
+    if not text:
+        return ""
 
+    text = text.lower().strip()
+
+    # Chuẩn hóa Unicode và loại bỏ dấu
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(
+        char for char in text
+        if unicodedata.category(char) != "Mn"
+    )
+
+    # Chuyển đ thành d
+    text = text.replace("đ", "d")
+
+    # Gộp khoảng trắng liên tiếp
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
 class ImageProcessor:
 
     def process(
@@ -12,6 +35,9 @@ class ImageProcessor:
         image: Image.Image,
         image_id: Optional[str] = None,
     ) -> Dict[str, Any]:
+
+         # Bắt đầu đo thời gian xử lý AI
+        start_time = time.perf_counter()
 
         # SigLIP
         embedding = embedding_service.embed_image(image)
@@ -47,12 +73,18 @@ class ImageProcessor:
                     },
                 }
             )
+        
+         # Tổng thời gian embedding + OCR + xử lý kết quả
+        total_duration_ms = round(
+            (time.perf_counter() - start_time) * 1000
+        )
 
         return {
             "imageId": image_id,
             "status": "SUCCESS",
             "embedding": embedding,
             "ocr": ocr_data,
+            "total_duration_ms": total_duration_ms,
             "error": None,
         }
 
