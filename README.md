@@ -20,12 +20,10 @@ Visual-Search-Engine/
 │   │   │   ├── layout/              # Header, Sidebar, Footer...
 │   │   │   └── search/              # Search bars, image grids...
 │   │   ├── pages/
-│   │   │   ├── HomePage/
 │   │   │   ├── SearchPage/
 │   │   │   └── UploadPage/
 │   │   ├── hooks/                   # Custom React hooks
 │   │   ├── services/                # API calls
-│   │   ├── store/                   # State management
 │   │   ├── types/                   # TypeScript interfaces/types
 │   │   └── utils/                   # Helpers
 │   ├── Dockerfile
@@ -175,8 +173,16 @@ Mọi API trả về cùng cấu trúc: `{ "status": 200, "message": "...", "tim
 
 ## Tìm kiếm bằng ảnh
 
-- Tìm mới: `POST /api/search/image?size=20`, multipart field `file`.
+- Tìm mới: `POST /api/search/image?size=40`, multipart field `file`.
 - Cuộn tải thêm: `GET /api/search/image/{searchId}/results?cursor=<nextCursor>`.
 - Mỗi lần tìm mới tạo một lịch sử; tải thêm giữ nguyên `searchId`, không tạo thêm lịch sử.
 
 Xem [API contract, cấu hình và hướng dẫn infinite scroll](docs/search-by-image.md).
+
+## Tìm kiếm bằng mô tả
+
+- Tìm mới: `POST /api/search/text?size=40`, JSON `{ "text": "A house beside a lake" }`.
+- Cuộn tải thêm: `GET /api/search/text/{searchId}/results?cursor=<nextCursor>`.
+- Dùng AI text embedding và cùng luồng Qdrant/cursor với tìm bằng ảnh.
+
+Xem [API contract và tích hợp frontend](docs/search-by-text.md).

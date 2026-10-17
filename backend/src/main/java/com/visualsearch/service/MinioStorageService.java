@@ -42,9 +42,6 @@ public class MinioStorageService {
     @Value("${minio.region:us-east-1}")
     private String region;
 
-    @Value("${minio.endpoint}")
-    private String endpoint;
-
     @Value("${minio.bucket-images}")
     private String bucketImages;
 
@@ -132,11 +129,6 @@ public class MinioStorageService {
         } catch (Exception exception) {
             throw new IllegalStateException("Could not create image download URL", exception);
         }
-    }
-
-    public String getThumbnailUrl(String objectName) {
-        String base = endpoint.replaceAll("/+$", "");
-        return base + "/" + bucketThumbnails + "/" + objectName;
     }
 
     public String getPresignedThumbnailUrl(String objectName) {

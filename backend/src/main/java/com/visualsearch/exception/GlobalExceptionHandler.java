@@ -5,6 +5,7 @@ import com.visualsearch.dto.BaseResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -79,6 +80,11 @@ public class GlobalExceptionHandler {
             MissingServletRequestPartException.class})
     public ResponseEntity<BaseResponse<ApiErrorData>> handleInvalidParameter(HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "Invalid or missing request parameter", request, null);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<BaseResponse<ApiErrorData>> handleInvalidBody(HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "Invalid or missing JSON request body", request, null);
     }
 
     private ResponseEntity<BaseResponse<ApiErrorData>> error(

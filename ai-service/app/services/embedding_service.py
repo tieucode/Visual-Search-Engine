@@ -70,7 +70,8 @@ class EmbeddingService:
         inputs = self.processor(
             text=text,
             return_tensors="pt",
-            padding="max_length"
+            padding="max_length",
+            truncation=True,
         )
 
         # Đưa input lên cùng device với model

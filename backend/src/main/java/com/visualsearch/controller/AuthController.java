@@ -1,6 +1,7 @@
 package com.visualsearch.controller;
 
 import com.visualsearch.dto.BaseResponse;
+import com.visualsearch.dto.ApiErrorResponse;
 import com.visualsearch.dto.auth.AuthData;
 import com.visualsearch.dto.auth.LoginRequest;
 import com.visualsearch.dto.auth.RegisterRequest;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -29,13 +31,14 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             summary = "Register a new account",
             description = "Creates a USER account and immediately returns one JWT access token.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Account created; authentication payload is in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request body; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Email is already registered; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class)))
+            @ApiResponse(responseCode = "201", description = "Account created; authentication payload is in data", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "400", description = "Invalid request body; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Email is already registered; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public ResponseEntity<BaseResponse<AuthData>> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -47,9 +50,9 @@ public class AuthController {
             summary = "Sign in",
             description = "Validates credentials and returns one JWT access token. No refresh token is issued.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Signed in; authentication payload is in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request body; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Invalid email or password; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class)))
+            @ApiResponse(responseCode = "200", description = "Signed in; authentication payload is in data", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "400", description = "Invalid request body; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid email or password; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public BaseResponse<AuthData> login(@Valid @RequestBody LoginRequest request) {
         return BaseResponse.of(HttpStatus.OK.value(), "Signed in successfully", authService.login(request));

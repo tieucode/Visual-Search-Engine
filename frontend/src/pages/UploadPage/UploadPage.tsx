@@ -27,7 +27,7 @@ export function UploadPage() {
   const toast = useToast();
   const queue = useImageQueue();
   const isMobile = useMediaQuery('(max-width: 767px)');
-  const { batches, loaded, refresh } = useProcessingBatches({
+  const { batches, loaded, error: batchesError, refresh } = useProcessingBatches({
     onUnauthorized: () => navigate('/login', { replace: true }),
   });
 
@@ -131,7 +131,8 @@ export function UploadPage() {
         <div className="batch-list">
           {!loaded && Array.from({ length: 2 }, (_, index) => <div key={index} className="batch-skeleton skeleton" />)}
           {loaded && visibleBatches.map((batch) => <BatchCard key={batch.batchId} batch={batch} />)}
-          {loaded && batches.length === 0 && <div className="batch-empty"><Activity size={20} aria-hidden="true" />Chưa có ảnh đang xử lý</div>}
+          {batchesError && <div className="batch-empty" role="status"><span>{batchesError}</span><Button variant="ghost" onClick={() => void refresh()}>Thử lại</Button></div>}
+          {loaded && !batchesError && batches.length === 0 && <div className="batch-empty"><Activity size={20} aria-hidden="true" />Chưa có ảnh đang xử lý</div>}
         </div>
       </aside>
 

@@ -3,10 +3,11 @@ import { Check, ScanSearch, ScanText, Search, Type } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useSearchWorkspace } from './SearchWorkspace';
 import { ImageSearchModal } from './ImageSearchModal';
+import { MAX_SEARCH_TEXT_LENGTH } from '../../types/search';
 import '../../styles/search.css';
 
 export function HeaderSearch() {
-  const { textMode, setTextMode, query, setQuery, submitText, imageModalOpen, setImageModalOpen } = useSearchWorkspace();
+  const { feed, textMode, setTextMode, query, setQuery, submitText, imageModalOpen, setImageModalOpen } = useSearchWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const modeButton = useRef<HTMLButtonElement>(null);
@@ -28,9 +29,9 @@ export function HeaderSearch() {
 
   return <>
     <form className="header-search" role="search" aria-label="Tìm hình ảnh" onSubmit={event => { event.preventDefault(); setMenuOpen(false); submitText(); }}>
-      <button className="icon-button header-search__submit" type="submit" aria-label="Tìm kiếm" disabled={!query.trim()}><Search size={20} aria-hidden="true" /></button>
+      <button className="icon-button header-search__submit" type="submit" aria-label={feed.loading ? 'Đang tìm kiếm' : 'Tìm kiếm'} aria-busy={feed.loading} disabled={feed.loading || !query.trim()}><Search size={20} aria-hidden="true" /></button>
       <label htmlFor="header-query" className="sr-only">{placeholder}</label>
-      <input ref={inputRef} id="header-query" className="header-search__input" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={placeholder} autoComplete="off" maxLength={500} />
+      <input ref={inputRef} id="header-query" className="header-search__input" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={placeholder} autoComplete="off" maxLength={MAX_SEARCH_TEXT_LENGTH} />
       <div
         ref={menuRef} className="header-search__mode"
         onMouseEnter={() => setMenuOpen(true)}

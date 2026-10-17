@@ -7,7 +7,7 @@ Nguồn thiết kế: [design-system.md](./design-system.md). Code mới nằm t
 - `src/styles/tokens.css`: màu, chữ, spacing, radius, shadow, motion, layout và z-index. Dùng `var(--...)`; không hard-code màu hoặc inline style cho giá trị tĩnh.
 - `src/styles/global.css`: reset, typography, container, nền xanh nhạt, animation và hỗ trợ reduced motion. Đã được import một lần trong `main.tsx`.
 - `src/styles/components.css`: kiểu chung cho button, input, card, badge, drop zone, progress, toast, skeleton và image grid.
-- `src/components/common`: import `Button`, `Input`, `Card`, `Badge` từ `../components/common` (điều chỉnh đường dẫn theo file). `Button` có `variant`, `size`, `loading`; `Input` có `label`, `error`. Dùng thẻ/thuộc tính HTML gốc còn lại.
+- `src/components/common`: import `Button`, `Input` từ `../components/common` (điều chỉnh đường dẫn theo file). `Button` có `variant`, `size`, `loading`; `Input` có `label`, `error`. Dùng thẻ/thuộc tính HTML gốc còn lại.
 - Layout: `.page-container` và `--grid` tận dụng toàn bộ chiều rộng, lề 24px desktop / 12px mobile; `--form` (360px), `--centered` (720px) dành cho nội dung cần giới hạn. Giao diện sáng theo design system v2.2. Header 64px desktop, 108px trên mobile để chứa ô tìm kiếm ở hàng riêng.
 - Font: Inter từ Google Fonts, khai báo tại `index.html`, áp dụng qua `--font-sans`; dự phòng font hệ thống khi không tải được.
 - Tìm kiếm: [search-page.md](./search-page.md) mô tả ba chế độ, masonry, infinite scroll, trang chi tiết và giới hạn API hiện tại.

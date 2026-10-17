@@ -3,6 +3,10 @@ import { ImageOff } from 'lucide-react';
 import type { SearchImageData } from '../../types/search';
 
 export function SearchImage({ image, main = false, alt }: { image: SearchImageData; main?: boolean; alt: string }) {
+  return <ImageResource key={`${main}:${image.imageUrl}:${image.thumbnailUrl}`} image={image} main={main} alt={alt} />;
+}
+
+function ImageResource({ image, main, alt }: { image: SearchImageData; main: boolean; alt: string }) {
   const [fallback, setFallback] = useState(false);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);

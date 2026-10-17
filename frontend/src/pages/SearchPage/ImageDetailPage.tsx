@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Heart, ImageOff, Maximize2 } from 'lucide-react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ImageViewer } from '../../components/common/ImageViewer';
 import { Button } from '../../components/common';
 import { FeedStatus } from '../../components/search/FeedStatus';
 import { MasonryGrid } from '../../components/search/MasonryGrid';
 import { SearchImage } from '../../components/search/SearchImage';
-import { ImageZoomModal } from '../../components/search/ImageZoomModal';
 import { useSearchWorkspace } from '../../components/search/SearchWorkspace';
 import { useSearchFeed } from '../../hooks/useSearchFeed';
 import { findDemoImage, searchDemo } from '../../services/mockSearchService';
 import { findRememberedImage } from '../../services/searchCache';
-import { nextImagePage, searchSimilarImages } from '../../services/searchService';
+import { nextSearchPage, searchSimilarImages } from '../../services/searchService';
 import type { SearchImageData, SearchPageData } from '../../types/search';
 import '../../styles/search.css';
 
@@ -24,7 +24,7 @@ function ImageDetail({ imageId }: { imageId: string }) {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as { image?: SearchImageData; from?: string } | null;
-  const image = state?.image?.imageId === imageId ? state.image : findRememberedImage(imageId) || findDemoImage(imageId);
+  const image = useMemo(() => state?.image?.imageId === imageId ? state.image : findRememberedImage(imageId) || findDemoImage(imageId), [state?.image, imageId]);
   const related = useSearchFeed();
   const workspace = useSearchWorkspace();
   const demo = imageId.startsWith('demo-');
@@ -35,20 +35,21 @@ function ImageDetail({ imageId }: { imageId: string }) {
     if (state?.from?.startsWith('/')) navigate(-1);
     else navigate(workspace.rootUrl.current || '/');
   };
-  const startRelated = () => {
+  const startRelated = useCallback(() => {
     if (!image) return;
     const excludeMain = (page: SearchPageData) => ({ ...page, items: page.items.filter(item => item.imageId !== imageId) });
     if (demo) {
       const mode = imageId.startsWith('demo-ocr') ? 'ocr' : 'text';
       void related.start(async signal => excludeMain(await searchDemo(mode, imageId, signal)), async (page, signal) => excludeMain(await searchDemo(mode, imageId, signal, page.nextCursor!)));
     } else {
-      void related.start(async signal => excludeMain(await searchSimilarImages(image, signal)), async (page, signal) => excludeMain(await nextImagePage(page, signal)));
+      void related.start(async signal => excludeMain(await searchSimilarImages(image, signal)), async (page, signal) => excludeMain(await nextSearchPage(page, signal)));
     }
-  };
+  }, [image, imageId, demo, related.start]);
   useEffect(() => {
     window.scrollTo(0, 0);
-    startRelated();
-  }, []);
+    const timer = window.setTimeout(startRelated, 0);
+    return () => window.clearTimeout(timer);
+  }, [startRelated]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!zoomOpen && event.key === 'Escape' && !event.defaultPrevented && !(event.target as HTMLElement)?.closest('input, dialog, [role="dialog"], [role="menu"]')) close();
@@ -75,6 +76,6 @@ function ImageDetail({ imageId }: { imageId: string }) {
       <p className="sr-only" role="status">{related.loading ? 'Đang tìm các hình ảnh tương tự.' : `Đã tải ${related.items.length} hình ảnh tương tự.`}</p>
       {!related.loading && <FeedStatus feed={related} retry={startRelated} empty="Chưa có hình ảnh tương tự." />}
     </section>
-    {zoomOpen && <ImageZoomModal image={image} onClose={closeZoom} />}
+    {zoomOpen && <ImageViewer src={image.imageUrl} alt="Ảnh đang xem chi tiết" onClose={closeZoom} />}
   </main>;
 }

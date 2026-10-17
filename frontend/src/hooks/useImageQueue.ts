@@ -52,7 +52,11 @@ export function useImageQueue() {
       if (known.has(key)) { report.duplicates += 1; continue; }
       if (accepted.length >= room) { report.truncated += 1; continue; }
       known.add(key);
-      accepted.push({ id: ++sequence, file });
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const normalized = file.type ? file : new File([file], file.name, {
+        type: EXTENSION_TYPES[extension], lastModified: file.lastModified,
+      });
+      accepted.push({ id: ++sequence, file: normalized });
     }
 
     if (accepted.length > 0) commit([...itemsRef.current, ...accepted]);
