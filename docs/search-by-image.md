@@ -6,14 +6,14 @@ tạo; user khác không được tải tiếp kết quả của phiên đó.
 
 ## 1. Bắt đầu tìm kiếm
 
-`POST /api/search/image?size=20`, `Content-Type: multipart/form-data`.
+`POST /api/search/image?size=40`, `Content-Type: multipart/form-data`.
 
 - `file`: một ảnh JPEG, PNG hoặc WebP, mặc định tối đa 10 MiB và 40 triệu pixel;
   mỗi chiều không vượt 10.000 px theo giới hạn hiện có của AI service.
-- `size`: số kết quả mỗi trang, mặc định 20, từ 1 đến 100.
+- `size`: số kết quả mỗi trang, mặc định 40, từ 1 đến 100.
 
 ```bash
-curl -X POST 'http://localhost:8080/api/search/image?size=20' \
+curl -X POST 'http://localhost:8080/api/search/image?size=40' \
   -H 'Authorization: Bearer <accessToken>' \
   -F 'file=@query.jpg;type=image/jpeg'
 ```
@@ -66,7 +66,7 @@ Response HTTP **201** (ví dụ một trang kích thước 2):
 ```
 
 `score` là điểm cosine của collection hiện tại, không phải phần trăm xác suất.
-Chưa áp dụng ngưỡng điểm tối thiểu. URL ảnh gốc và thumbnail đều được ký; nếu
+Chưa áp dụng ngưỡng điểm tối thiểu. Object key MinIO được ký; URL HTTP(S) bên ngoài được giữ nguyên; nếu
 không có thumbnail thì `thumbnailUrl` dùng URL ảnh gốc.
 
 ## 2. Tải thêm khi cuộn
@@ -97,7 +97,7 @@ FE chỉ POST khi user bắt đầu tìm mới; cuộn trang và retry tải th�
 Khóa nút tìm khi request đầu đang chạy. POST hiện chưa hỗ trợ idempotency key:
 nếu response đầu bị mất sau khi commit và FE POST lại, sẽ tạo phiên mới.
 
-Gợi ý điều phối FE (chưa triển khai frontend trong thay đổi này):
+Frontend hiện dùng `useSearchFeed` và `FeedStatus` theo luồng sau:
 
 1. Khi tìm mới, hủy request tìm cũ, reset danh sách, POST ảnh và lưu `searchId`.
 2. Khi sentinel của `IntersectionObserver` gần cuối trang xuất hiện, chỉ GET khi
@@ -171,19 +171,35 @@ vụ phát hiện trả 400. Lỗi DB dùng cơ chế lỗi hiện có của bac
 ## 5. Mở rộng và kiểm thử
 
 `ImageSearchService` điều phối use case ảnh; `SimilaritySearchService` nhận vector
-nên có thể dùng lại cho semantic text. `SearchCursorService`, DTO trang và enum
-`SearchType` có thể dùng chung; OCR sau này có thể có retriever riêng. Chưa thêm
-endpoint OCR/text/click, chưa cache kết quả. `searchId` có thể dùng làm khóa ngoại
+và dùng chung với [semantic text](search-by-text.md). `AiEmbeddingClient`,
+`SearchPaginationService`, DTO trang và enum `SearchType`
+cũng dùng chung; OCR sau này có thể có retriever riêng. Chưa thêm
+endpoint OCR/click, chưa cache kết quả. `searchId` có thể dùng làm khóa ngoại
 `SearchClick.searchHistory` khi bổ sung hành vi click sau này.
 
-```bash
-cd backend
-mvn -q test
-```
+Kiểm tra build: `cd backend` rồi `mvn -q -DskipTests compile`.
+Không có bộ test tự động cho search trong repository hiện tại; cần kiểm thử tích hợp với stack thật.
 
-Kiểm thử bao gồm: tạo/tải lại phiên không nhân bản lịch sử; kiểm tra owner; ký
-cursor; giới hạn ảnh; thứ tự điểm; lookahead; point đã xóa/mất dữ liệu; hết trang;
-request/response AI và Qdrant; lỗi dependency; bù trừ MinIO; URL public có chữ ký;
-endpoint được bảo vệ và envelope lỗi. Kiểm thử persistence chạy với H2 ở chế độ
-PostgreSQL; HTTP dependency được giả lập. Vẫn cần smoke test với stack thật và
-model khi Docker/dependency sẵn sàng.
+## Ảnh lưu ngoài MinIO và tìm tương tự
+
+DB hiện dùng `images.path` và `images.thumbnail_path` (không có cột
+`image_url`/`thumbnail_url`). Có thể lưu URL HTTP(S) đầy đủ trực tiếp vào hai cột
+này, tối đa 500 ký tự theo schema hiện tại. API ánh xạ sang `imageUrl`/`thumbnailUrl`.
+Không đổi schema, không thêm prefix MinIO, không sửa query string của URL ngoài.
+Ảnh cần có `type=UPLOAD`, chưa soft-delete, và Qdrant point ID trùng UUID trong DB.
+`file_size`, width, height có thể NULL. Thumbnail NULL/rỗng/sai scheme fallback về
+ảnh gốc; ảnh gốc thiếu hoặc có URI scheme không hỗ trợ được bỏ qua khi phân trang.
+
+`POST /api/search/image/{imageId}/similar?size=40` trả HTTP 201 với
+`BaseResponse<SearchPageData>`, searchType IMAGE_ONLY. Dùng vector Qdrant theo ID,
+không tải media ở backend/frontend và không gọi AI. Qdrant loại chính ảnh truy vấn.
+Lịch sử tham chiếu ảnh thư viện hiện có; không tạo bản sao hay object SEARCH mới.
+GET continuation dùng cùng cursor và kiểm tra owner như tìm bằng file. Nếu ảnh
+bị xóa khỏi DB thì trả 404; thiếu vector hoặc Qdrant lỗi thì trả lỗi dependency 502.
+
+Quy tắc resolve URL dùng chung cho kết quả tìm ảnh, mô tả và tìm tương tự, kể cả
+các trang tiếp theo và danh sách trộn ảnh MinIO/nguồn ngoài. Không gọi HEAD/GET
+đến nguồn ảnh để quyết định thứ hạng. Việc hiển thị vẫn phụ thuộc URL còn hiệu lực
+và nguồn cho phép nhúng ảnh; kết quả tìm kiếm không bảo đảm mọi URL luôn tải được.
+
+Tham khảo truy vấn vector theo ID: [Qdrant Query points](https://api.qdrant.tech/api-reference/search/query-points).

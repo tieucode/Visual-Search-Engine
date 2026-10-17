@@ -1,6 +1,7 @@
 package com.visualsearch.controller;
 
 import com.visualsearch.dto.BaseResponse;
+import com.visualsearch.dto.ApiErrorResponse;
 import com.visualsearch.dto.upload.BatchInitData;
 import com.visualsearch.dto.upload.BatchInitRequest;
 import com.visualsearch.dto.upload.BatchPageData;
@@ -8,6 +9,7 @@ import com.visualsearch.dto.upload.BatchStatusData;
 import com.visualsearch.entity.User;
 import com.visualsearch.service.BatchService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 import java.util.UUID;
 
@@ -40,15 +43,16 @@ public class BatchController {
     private final BatchService batchService;
 
     @PostMapping("/init")
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Initialize an upload batch")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Batch initialized; batch data is in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class)))
+            @ApiResponse(responseCode = "201", description = "Batch initialized; batch data is in data", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "400", description = "Invalid request; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public ResponseEntity<BaseResponse<BatchInitData>> initBatch(
             @Valid @RequestBody BatchInitRequest request,
-            @AuthenticationPrincipal User currentUser) {
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(BaseResponse.of(
                         HttpStatus.CREATED.value(),
@@ -63,7 +67,7 @@ public class BatchController {
             @RequestParam(defaultValue = "createdAt,desc") String sort,
             @RequestParam int page,
             @RequestParam int size,
-            @AuthenticationPrincipal User currentUser) {
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
         return BaseResponse.of(
                 HttpStatus.OK.value(),
                 "Batches retrieved successfully",
@@ -73,13 +77,13 @@ public class BatchController {
     @GetMapping("/{batchId}")
     @Operation(summary = "Get batch processing status")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Batch status is in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Batch not found; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class)))
+            @ApiResponse(responseCode = "200", description = "Batch status is in data", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Batch not found; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public BaseResponse<BatchStatusData> getBatchStatus(
             @PathVariable UUID batchId,
-            @AuthenticationPrincipal User currentUser) {
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
         return BaseResponse.of(
                 HttpStatus.OK.value(),
                 "Batch status retrieved successfully",

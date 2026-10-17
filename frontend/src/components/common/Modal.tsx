@@ -15,36 +15,32 @@ export interface ModalProps {
 }
 
 export function Modal({ label, onClose, size = 'md', title, actions, children }: ModalProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     const previousFocus = document.activeElement as HTMLElement | null;
     document.body.style.overflow = 'hidden';
-    panelRef.current?.focus();
+    const dialog = dialogRef.current;
+    dialog?.showModal();
     return () => {
+      dialog?.close();
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus?.();
     };
   }, []);
 
-  useEffect(() => {
-    if (!onClose) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   return createPortal(
-    <div
+    <dialog
+      ref={dialogRef}
       className="modal-overlay"
+      aria-label={label}
+      onCancel={(event) => { event.preventDefault(); onClose?.(); }}
       onMouseDown={(event) => {
         if (onClose && event.target === event.currentTarget) onClose();
       }}
     >
-      <div ref={panelRef} className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
+      <div className={`modal modal--${size}`}>
         {(title || onClose) && (
           <header className="modal__header">
             <h2 className="modal__title">{title}</h2>
@@ -60,7 +56,7 @@ export function Modal({ label, onClose, size = 'md', title, actions, children }:
         )}
         {children}
       </div>
-    </div>,
+    </dialog>,
     document.body,
   );
 }

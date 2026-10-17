@@ -1,6 +1,7 @@
 package com.visualsearch.controller;
 
 import com.visualsearch.dto.BaseResponse;
+import com.visualsearch.dto.ApiErrorResponse;
 import com.visualsearch.dto.upload.ImageUploadRequest;
 import com.visualsearch.dto.upload.ImageUploadData;
 import com.visualsearch.entity.User;
@@ -40,9 +41,9 @@ public class ImageUploadController {
             summary = "Upload up to 50 images to a batch",
             description = "Select one or more files in Swagger's files control. Set isLast=true only on the final upload request for the batch.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Upload result is in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid upload request; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = BaseResponse.class)))
+            @ApiResponse(responseCode = "200", description = "Upload result is in data", useReturnTypeSchema = true),
+            @ApiResponse(responseCode = "400", description = "Invalid upload request; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing, expired, or invalid access token; error details are in data", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public BaseResponse<ImageUploadData> uploadImages(
             @Parameter(description = "Batch ID returned by POST /api/uploads/batches/init", required = true)
@@ -54,7 +55,7 @@ public class ImageUploadController {
                     required = true,
                     content = @Content(array = @ArraySchema(schema = @Schema(type = "string", format = "binary"))))
             @RequestPart("files") java.util.List<MultipartFile> files,
-            @AuthenticationPrincipal User currentUser) {
+            @Parameter(hidden = true) @AuthenticationPrincipal User currentUser) {
         ImageUploadRequest request = ImageUploadRequest.builder()
                 .batchId(batchId)
                 .isLast(isLast)

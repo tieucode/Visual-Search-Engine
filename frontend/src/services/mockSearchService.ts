@@ -1,6 +1,6 @@
 import type { SearchImageData, SearchPageData } from '../types/search';
 
-// Text and OCR are deliberately isolated here so their API adapters can replace this file.
+// Demo data remains for recommendations, OCR and related images opened from those feeds.
 const photos = [
   ['photo-1441974231531-c6227db76b6e', 800, 1100],
   ['photo-1470770841072-f978cf4d019e', 900, 650],

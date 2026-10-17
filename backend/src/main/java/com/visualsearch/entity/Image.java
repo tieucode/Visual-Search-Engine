@@ -19,9 +19,11 @@ import org.hibernate.annotations.SQLRestriction;
 @Builder
 public class Image extends BaseEntity {
 
+    /** MinIO object key or absolute HTTP(S) URL. */
     @Column(name = "path", length = 500, nullable = false)
     private String path;
 
+    /** Optional MinIO thumbnail key or absolute HTTP(S) URL. */
     @Column(name = "thumbnail_path", length = 500)
     private String thumbnailPath;
 

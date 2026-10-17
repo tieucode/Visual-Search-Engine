@@ -63,7 +63,9 @@ export function useSearchFeed() {
     try {
       const result = await nextRef.current(previous, controller.signal);
       if (current !== generation.current) return;
-      if (result.searchId !== previous.searchId || (result.hasMore && result.nextCursor === previous.nextCursor)) {
+      if (result.searchId !== previous.searchId || result.searchType !== previous.searchType
+          || result.size !== previous.size
+          || (result.hasMore && (!result.nextCursor || result.nextCursor === previous.nextCursor))) {
         throw new Error('Không thể tải trang tiếp theo. Vui lòng thử lại.');
       }
       pageRef.current = result;
