@@ -32,6 +32,8 @@ spring:
 
 # Custom app configuration
 app:
+  ocr-normalization:
+    enabled: ${APP_OCR_NORMALIZATION_ENABLED:false}
   search:
     max-image-bytes: ${SEARCH_MAX_IMAGE_BYTES:10485760}
     max-image-pixels: ${SEARCH_MAX_IMAGE_PIXELS:40000000}

@@ -1,4 +1,4 @@
-import { apiClient, request } from './apiClient';
+import { request } from './apiClient';
 import type { SearchImageData, SearchPageData } from '../types/search';
 
 export async function searchByImage(file: File, signal: AbortSignal): Promise<SearchPageData> {
@@ -34,49 +34,20 @@ export async function searchSimilarImages(image: SearchImageData, signal: AbortS
   return searchByImage(new File([blob], `similar.${extension}`, { type: blob.type || 'image/jpeg' }), signal);
 }
 
-export interface OcrSearchResult {
-  imageId: string;
-  imageUrl: string;
-  thumbnailUrl: string;
-  width: number | null;
-  height: number | null;
-  rawText: string;
-  confidenceScore: number | null;
-}
-
-
 export async function searchByOcr(
   keyword: string,
   signal: AbortSignal,
 ): Promise<SearchPageData> {
-  const response = await apiClient.get<OcrSearchResult[]>(
-    '/search/ocr',
-    {
-      params: { q: keyword },
-      signal,
-      timeout: 30_000,
-    },
-  );
+  const response = await request<SearchPageData>({
+    method: 'GET', url: '/search/ocr', params: { q: keyword, size: 20 }, signal, timeout: 90_000,
+  });
+  return response.data;
+}
 
-  if (!Array.isArray(response.data)) {
-    throw new Error('API OCR không trả về danh sách kết quả hợp lệ.');
-  }
-
-  const items: SearchImageData[] = response.data.map(item => ({
-    imageId: item.imageId,
-    imageUrl: item.imageUrl,
-    thumbnailUrl: item.thumbnailUrl || item.imageUrl,
-    width: item.width,
-    height: item.height,
-    score: item.confidenceScore ?? 0,
-  }));
-
-  return {
-    searchId: `ocr-${keyword}`,
-    searchType: 'TEXT_OCR',
-    items,
-    size: items.length,
-    hasMore: false,
-    nextCursor: null,
-  };
+export async function nextOcrPage(page: SearchPageData, signal: AbortSignal): Promise<SearchPageData> {
+  const response = await request<SearchPageData>({
+    method: 'GET', url: `/search/ocr/${encodeURIComponent(page.searchId)}/results`,
+    params: { cursor: page.nextCursor }, signal, timeout: 90_000,
+  });
+  return response.data;
 }

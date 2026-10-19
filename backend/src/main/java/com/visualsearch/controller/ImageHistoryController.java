@@ -2,7 +2,7 @@
 package com.visualsearch.controller;
 
 import com.visualsearch.dto.BaseResponse;
-import com.visualsearch.dto.response.ImageUploadHistoryResponse;
+import com.visualsearch.dto.history.ImageUploadHistoryResponse;
 import com.visualsearch.entity.User;
 import com.visualsearch.service.ImageHistoryService;
 import lombok.RequiredArgsConstructor;

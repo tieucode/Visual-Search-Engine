@@ -3,6 +3,7 @@ package com.visualsearch.service.search;
 import com.visualsearch.client.AiImageEmbeddingClient;
 import com.visualsearch.config.SearchProperties;
 import com.visualsearch.dto.search.SearchPageData;
+import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.entity.Image;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.SearchType;
@@ -27,7 +28,7 @@ public class ImageSearchService {
     private final MinioStorageService storage;
     private final SearchProperties properties;
 
-    public SearchPageData start(MultipartFile file, int size, User user) {
+    public SearchPageData<SearchImageData> start(MultipartFile file, int size, User user) {
         if (size < 1 || size > 100) {
             throw new BadRequestException("size must be between 1 and 100");
         }
@@ -53,7 +54,7 @@ public class ImageSearchService {
         return response(searchId, size, results);
     }
 
-    public SearchPageData next(UUID searchId, String cursor, User user) {
+    public SearchPageData<SearchImageData> next(UUID searchId, String cursor, User user) {
         // Ownership is checked before reading storage or calling any expensive dependency.
         Image query = history.getQueryImage(searchId, user);
         var position = cursors.decode(cursor, searchId);
@@ -65,7 +66,7 @@ public class ImageSearchService {
         return response(searchId, position.size(), results);
     }
 
-    private SearchPageData response(UUID searchId, int size, SimilaritySearchService.ResultPage page) {
+    private SearchPageData<SearchImageData> response(UUID searchId, int size, SimilaritySearchService.ResultPage page) {
         String nextCursor = page.nextOffset() == null ? null : cursors.encode(searchId, page.nextOffset(), size);
         return new SearchPageData(searchId, SearchType.IMAGE_ONLY, page.items(), size,
                 nextCursor != null, nextCursor);

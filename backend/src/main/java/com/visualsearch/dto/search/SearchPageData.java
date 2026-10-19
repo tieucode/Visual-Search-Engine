@@ -4,5 +4,5 @@ import com.visualsearch.enums.SearchType;
 import java.util.List;
 import java.util.UUID;
 
-public record SearchPageData(UUID searchId, SearchType searchType, List<SearchImageData> items,
+public record SearchPageData<T>(UUID searchId, SearchType searchType, List<T> items,
                              int size, boolean hasMore, String nextCursor) {}

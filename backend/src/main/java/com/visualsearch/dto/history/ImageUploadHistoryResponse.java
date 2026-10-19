@@ -1,4 +1,4 @@
-package com.visualsearch.dto.response;
+package com.visualsearch.dto.history;
 
 import java.time.Instant;
 import java.util.UUID;

@@ -4,8 +4,14 @@ import com.visualsearch.entity.ImageOcr;
 import com.visualsearch.repository.ImageOcrRepository;
 import com.visualsearch.util.TextNormalizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -16,28 +22,36 @@ public class OcrNormalizationService {
     /**
      * Chuẩn hóa lại toàn bộ dữ liệu OCR đã lưu trong database.
      */
-    @Transactional
     public int normalizeAll() {
-        var records = imageOcrRepository.findAll();
-
         int updated = 0;
+        UUID lastId = null;
+        Pageable batch = PageRequest.of(0, 500, Sort.by(Sort.Direction.ASC, "id"));
 
-        for (ImageOcr record : records) {
-            String rawText = record.getRawText();
-
-            if (rawText == null || rawText.isBlank()) {
-                continue;
+        while (true) {
+            List<ImageOcr> records = lastId == null
+                    ? imageOcrRepository.findByIdIsNotNull(batch)
+                    : imageOcrRepository.findByIdGreaterThanOrderByIdAsc(lastId, batch);
+            if (records.isEmpty()) {
+                break;
             }
 
-            String normalizedText = TextNormalizer.normalize(rawText);
+            lastId = records.get(records.size() - 1).getId();
+            List<ImageOcr> changed = new ArrayList<>();
+            for (ImageOcr record : records) {
+                String rawText = record.getRawText();
+                if (rawText == null || rawText.isBlank()) continue;
 
-            if (!normalizedText.equals(record.getNormalizedText())) {
-                record.setNormalizedText(normalizedText);
-                updated++;
+                String normalizedText = TextNormalizer.normalize(rawText);
+                if (!normalizedText.equals(record.getNormalizedText())) {
+                    record.setNormalizedText(normalizedText);
+                    changed.add(record);
+                }
+            }
+            if (!changed.isEmpty()) {
+                imageOcrRepository.saveAll(changed);
+                updated += changed.size();
             }
         }
-
-        imageOcrRepository.saveAll(records);
 
         return updated;
     }

@@ -1,6 +1,5 @@
 package com.visualsearch.indexing.persistence;
 
-import com.visualsearch.indexing.processing.TextNormalizer;
 import com.visualsearch.indexing.processing.OcrData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

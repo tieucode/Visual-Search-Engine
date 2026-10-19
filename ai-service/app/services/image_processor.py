@@ -1,33 +1,12 @@
-import re
 import time
-import unicodedata
 from typing import Any, Dict, Optional
 from PIL import Image
 
 from app.services.embedding_service import embedding_service
 from app.services.ocr_service import ocr_service
+from app.utils.text_normalizer import normalize_text
 
-def normalize_text(text: str) -> str:
-    """Chuyển văn bản thành chữ thường, không dấu và chuẩn hóa khoảng trắng."""
-    if not text:
-        return ""
 
-    text = text.lower().strip()
-
-    # Chuẩn hóa Unicode và loại bỏ dấu
-    text = unicodedata.normalize("NFD", text)
-    text = "".join(
-        char for char in text
-        if unicodedata.category(char) != "Mn"
-    )
-
-    # Chuyển đ thành d
-    text = text.replace("đ", "d")
-
-    # Gộp khoảng trắng liên tiếp
-    text = re.sub(r"\s+", " ", text).strip()
-
-    return text
 class ImageProcessor:
 
     def process(
@@ -63,7 +42,7 @@ class ImageProcessor:
             ocr_data.append(
                 {
                     "text": text,
-                    "normalizedText": text.lower().strip(),
+                    "normalizedText": normalize_text(text),
                     "confidence": detection["confidence"],
                     "boundingBox": {
                         "x": float(x),

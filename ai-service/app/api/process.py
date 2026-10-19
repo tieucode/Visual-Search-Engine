@@ -5,6 +5,7 @@ from io import BytesIO
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 
+from app.core.config import settings
 from app.services.image_processor import image_processor
 
 router = APIRouter(
@@ -12,24 +13,9 @@ router = APIRouter(
     tags=["Image Processing"],
 )
 
-# ==============================
-# Cấu hình giới hạn
-# ==============================
-
-MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
-MAX_IMAGE_PIXELS = 25_000_000              # 25 megapixel
-
-MAX_ACTIVE_PROCESSING = 3
-MAX_WAITING_REQUESTS = 6
-MAX_IN_FLIGHT_REQUESTS = (
-    MAX_ACTIVE_PROCESSING + MAX_WAITING_REQUESTS
-)
-
-MAX_QUEUE_WAIT_SECONDS = 60
-
 # Giới hạn số tác vụ xử lý AI đồng thời
 processing_semaphore = asyncio.Semaphore(
-    MAX_ACTIVE_PROCESSING
+    settings.max_active_processing
 )
 
 # Quản lý tổng số request đang xử lý hoặc chờ
@@ -42,7 +28,7 @@ async def try_admit_request() -> bool:
     global in_flight_requests
 
     async with admission_lock:
-        if in_flight_requests >= MAX_IN_FLIGHT_REQUESTS:
+        if in_flight_requests >= settings.max_in_flight_requests:
             return False
 
         in_flight_requests += 1
@@ -108,7 +94,7 @@ async def process_image(file: UploadFile = File(...)):
         try:
             await asyncio.wait_for(
                 processing_semaphore.acquire(),
-                timeout=MAX_QUEUE_WAIT_SECONDS,
+                timeout=settings.max_queue_wait_seconds,
             )
             processing_acquired = True
 
@@ -121,7 +107,7 @@ async def process_image(file: UploadFile = File(...)):
 
         # Đọc ảnh có giới hạn dung lượng
         image_bytes = await file.read(
-            MAX_UPLOAD_SIZE_BYTES + 1
+            settings.max_upload_size_bytes + 1
         )
 
         if not image_bytes:
@@ -130,10 +116,13 @@ async def process_image(file: UploadFile = File(...)):
                 detail="File ảnh rỗng",
             )
 
-        if len(image_bytes) > MAX_UPLOAD_SIZE_BYTES:
+        if len(image_bytes) > settings.max_upload_size_bytes:
             raise HTTPException(
                 status_code=413,
-                detail="Ảnh vượt quá giới hạn 15 MB.",
+                detail=(
+                    "Ảnh vượt quá giới hạn "
+                    f"{settings.max_upload_size_bytes / (1024 * 1024):g} MB."
+                ),
             )
 
         # Đọc và kiểm tra ảnh
@@ -141,12 +130,12 @@ async def process_image(file: UploadFile = File(...)):
             with Image.open(BytesIO(image_bytes)) as source:
                 width, height = source.size
 
-                if width * height > MAX_IMAGE_PIXELS:
+                if width * height > settings.max_image_pixels:
                     raise HTTPException(
                         status_code=413,
                         detail=(
                             "Kích thước ảnh vượt quá "
-                            "25 megapixel."
+                            f"{settings.max_image_pixels / 1_000_000:g} megapixel."
                         ),
                     )
 

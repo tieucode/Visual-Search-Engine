@@ -8,6 +8,8 @@ export interface SearchImageData {
   width: number | null;
   height: number | null;
   score: number;
+  /** Text recognized in the image, returned by OCR search. */
+  rawTexts?: string[];
 }
 
 export interface SearchPageData {

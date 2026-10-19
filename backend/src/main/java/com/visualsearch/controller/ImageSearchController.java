@@ -2,6 +2,7 @@ package com.visualsearch.controller;
 
 import com.visualsearch.dto.BaseResponse;
 import com.visualsearch.dto.search.SearchPageData;
+import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.entity.User;
 import com.visualsearch.service.search.ImageSearchService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,7 +32,7 @@ public class ImageSearchController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Start a new image search", description = "Creates one history entry and returns the first page. "
             + "Use the returned searchId and nextCursor to load more results without creating another search.")
-    public ResponseEntity<BaseResponse<SearchPageData>> start(
+    public ResponseEntity<BaseResponse<SearchPageData<SearchImageData>>> start(
             @Parameter(required = true, description = "JPEG, PNG or WebP query image",
                     content = @Content(schema = @Schema(type = "string", format = "binary")))
             @RequestPart("file") MultipartFile file,
@@ -45,7 +46,7 @@ public class ImageSearchController {
     @Operation(summary = "Load the next page of an existing image search",
             description = "Send nextCursor unchanged. Reuses the stored query image and calls AI again. "
                     + "Never creates history. Only the user who started the search can load its pages.")
-    public BaseResponse<SearchPageData> next(@PathVariable UUID searchId, @RequestParam String cursor,
+    public BaseResponse<SearchPageData<SearchImageData>> next(@PathVariable UUID searchId, @RequestParam String cursor,
                                              @AuthenticationPrincipal User user) {
         return BaseResponse.of(200, "Image search results retrieved", service.next(searchId, cursor, user));
     }

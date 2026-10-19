@@ -1,6 +1,6 @@
 package com.visualsearch.service;
 
-import com.visualsearch.dto.response.ImageUploadHistoryResponse;
+import com.visualsearch.dto.history.ImageUploadHistoryResponse;
 import com.visualsearch.entity.Image;
 import com.visualsearch.repository.ImageRepository;
 import lombok.RequiredArgsConstructor;
