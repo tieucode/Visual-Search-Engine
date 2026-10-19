@@ -62,6 +62,7 @@ export function MasonryGrid({ items, featured, loading = false }: { items: Searc
           onClick={() => { if (location.pathname === '/') workspace.scrollY.current = window.scrollY; }}
         >
           <SearchImage image={item} alt={`Kết quả tìm kiếm ${index + 1}`} />
+          {item.rawTexts?.length ? <span className="search-tile__ocr" title={item.rawTexts.join(' · ')}>{item.rawTexts.join(' · ')}</span> : null}
           <span className="search-tile__open" aria-hidden="true"><ArrowUpRight size={20} /></span>
         </Link>
       ))}

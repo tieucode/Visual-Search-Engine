@@ -47,3 +47,21 @@ export async function searchSimilarImages(image: SearchImageData, signal: AbortS
   });
   return parseSearchPage(response.data);
 }
+
+export async function searchByOcr(
+  keyword: string,
+  signal: AbortSignal,
+): Promise<SearchPageData> {
+  const response = await request<SearchPageData>({
+    method: 'GET', url: '/search/ocr', params: { q: keyword, size: 20 }, signal, timeout: 90_000,
+  });
+  return response.data;
+}
+
+export async function nextOcrPage(page: SearchPageData, signal: AbortSignal): Promise<SearchPageData> {
+  const response = await request<SearchPageData>({
+    method: 'GET', url: `/search/ocr/${encodeURIComponent(page.searchId)}/results`,
+    params: { cursor: page.nextCursor }, signal, timeout: 90_000,
+  });
+  return response.data;
+}

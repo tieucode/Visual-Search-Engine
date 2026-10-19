@@ -25,6 +25,7 @@
 .search-masonry__featured { position: absolute; top: 0; left: 0; }
 .search-query-image { width: 100%; height: auto; border-radius: var(--radius-xl); }
 .search-tile { position: absolute; overflow: hidden; border-radius: var(--radius-xl); background: var(--bg-surface); color: var(--text-primary); text-decoration: none; }
+.search-tile__ocr { position: absolute; inset: auto 0 0; overflow: hidden; padding: 30px var(--space-3) var(--space-3); background: linear-gradient(transparent, rgb(0 0 0 / 78%)); color: #fff; font-size: var(--text-xs); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .search-tile:focus-visible { z-index: var(--z-raised); }
 .search-image { width: 100%; height: 100%; }
 .search-image img { width: 100%; height: 100%; object-fit: cover; }

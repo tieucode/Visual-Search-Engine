@@ -4,6 +4,7 @@ import com.visualsearch.dto.BaseResponse;
 import com.visualsearch.service.search.SearchPaginationService;
 import com.visualsearch.dto.ApiErrorResponse;
 import com.visualsearch.dto.search.SearchPageData;
+import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.entity.User;
 import com.visualsearch.service.search.ImageSearchService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,11 +44,15 @@ public class ImageSearchController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Start a new image search", description = "Creates one history entry and returns the first page. "
             + "Use the returned searchId and nextCursor to load more results without creating another search.")
+<<<<<<< HEAD
+    public ResponseEntity<BaseResponse<SearchPageData<SearchImageData>>> start(
+=======
     @ApiResponse(responseCode = "201", description = "Search created; the first result page is in data",
             useReturnTypeSchema = true)
     @ApiResponse(responseCode = "413", description = "Multipart upload exceeds the configured size limit",
             content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     public BaseResponse<SearchPageData> start(
+>>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
             @Parameter(required = true, description = "JPEG, PNG or WebP query image",
                     content = @Content(schema = @Schema(type = "string", format = "binary")))
             @RequestPart("file") MultipartFile file,
@@ -78,6 +83,11 @@ public class ImageSearchController {
     @Operation(summary = "Load the next page of an existing image search",
             description = "Send nextCursor unchanged. Uploaded queries call AI again; library-image queries reuse their Qdrant vector. "
                     + "Never creates history. Only the user who started the search can load its pages.")
+<<<<<<< HEAD
+    public BaseResponse<SearchPageData<SearchImageData>> next(@PathVariable UUID searchId, @RequestParam String cursor,
+                                             @AuthenticationPrincipal User user) {
+        return BaseResponse.of(200, "Image search results retrieved", service.next(searchId, cursor, user));
+=======
     @ApiResponse(responseCode = "200", description = "Result page in data; nextCursor is null at the end",
             useReturnTypeSchema = true)
     @ApiResponse(responseCode = "404", description = "Search not found, belongs to another user, has another type, or query image is missing",
@@ -88,5 +98,6 @@ public class ImageSearchController {
             @RequestParam String cursor,
             @Parameter(hidden = true) @AuthenticationPrincipal User user) {
         return BaseResponse.of(200, "Image search results retrieved", imageSearch.next(searchId, cursor, user));
+>>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
     }
 }
