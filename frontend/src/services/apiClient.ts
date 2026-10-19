@@ -57,12 +57,16 @@ export async function request<TResponse, TBody = unknown>(
     }
     return response.data as BaseResponse<TResponse>;
   } catch (error) {
+    if (axios.isCancel(error)) throw error;
     if (error instanceof ApiClientError) throw error;
     if (error instanceof AxiosError) {
       const body: unknown = error.response?.data;
       const envelope = isBaseResponse(body) ? body : null;
       const status = error.response?.status ?? null;
-      if (status === 401 && !/^\/?auth\//.test(error.config?.url ?? '')) clearAccessToken();
+      const token = getAccessToken();
+      if (status === 401 && token && error.config?.headers.get('Authorization') === `Bearer ${token}`) {
+        clearAccessToken();
+      }
       throw new ApiClientError(
         envelope?.message || (status === null ? 'Không thể kết nối tới máy chủ' : 'Yêu cầu thất bại'),
         status,

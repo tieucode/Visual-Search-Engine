@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.CompletionException;
 
 @Slf4j
 @Service
@@ -47,11 +48,17 @@ public class ImageUploadService {
     @Value("${app.upload.max-file-size-mb:10}")
     private long maxFileSizeMb;
 
+    @Value("${app.upload.max-image-pixels:40000000}")
+    private long maxImagePixels;
+
     @Value("${app.indexing.max-message-images}")
     private int maxIndexingMessageImages;
 
     @PostConstruct
     public void registerImageReaders() {
+        if (maxImagePixels < 1 || maxFileSizeMb < 1) {
+            throw new IllegalStateException("Upload size and pixel limits must be positive");
+        }
         if (maxIndexingMessageImages < 1) {
             throw new IllegalStateException("Indexing message size must be at least 1");
         }
@@ -96,15 +103,15 @@ public class ImageUploadService {
 
         for (CompletableFuture<SingleImageResult> future : futures) {
             try {
-                SingleImageResult result = future.get();
+                SingleImageResult result = future.join();
                 if (result.isSuccess()) {
                     successItems.add(result.getItem());
                 } else {
                     errors.add(result.getErrorMessage());
                 }
-            } catch (Exception e) {
-                log.error("Error retrieving upload result: {}", e.getMessage());
-                errors.add("Internal processing error: " + e.getMessage());
+            } catch (CompletionException e) {
+                log.error("Error retrieving upload result", e);
+                errors.add("Internal processing error");
             }
         }
 
@@ -171,19 +178,7 @@ public class ImageUploadService {
         try {
             validateImageContent(file, imageFormat);
 
-            // Đọc kích thước ảnh width x height
-            int width;
-            int height;
-            try (InputStream is = file.getInputStream()) {
-                BufferedImage bi = ImageIO.read(is);
-                if (bi == null) {
-                    throw new BadRequestException("Image cannot be decoded");
-                }
-                width = bi.getWidth();
-                height = bi.getHeight();
-            } catch (IOException e) {
-                throw new BadRequestException("Image cannot be decoded");
-            }
+            ImageDimensions dimensions = readDimensions(file);
 
             // Đặt tên file ngẫu nhiên trên MinIO
             String fileId = UUID.randomUUID().toString();
@@ -198,6 +193,7 @@ public class ImageUploadService {
                 minioStorageService.uploadThumbnail(file, thumbObjectName);
             } catch (Exception e) {
                 log.warn("Thumbnail generation failed for {}: {}", originalFilename, e.getMessage());
+                minioStorageService.deleteThumbnail(thumbObjectName);
                 thumbObjectName = null;
             }
 
@@ -209,8 +205,8 @@ public class ImageUploadService {
                     userId,
                     originalObjectName,
                     thumbObjectName,
-                    width,
-                    height,
+                    dimensions.width(),
+                    dimensions.height(),
                     file.getSize(),
                     imageFormat);
             persisted = true;
@@ -229,9 +225,37 @@ public class ImageUploadService {
                 }
             }
             log.error("Failed to process image '{}': {}", originalFilename, e.getMessage(), e);
-            return SingleImageResult.failure(originalFilename + ": " + e.getMessage());
+            return SingleImageResult.failure(originalFilename + ": "
+                    + (e instanceof BadRequestException ? e.getMessage() : "Image processing failed"));
         }
     }
+
+    private ImageDimensions readDimensions(MultipartFile file) {
+        try (InputStream input = file.getInputStream();
+             var imageInput = new MemoryCacheImageInputStream(input)) {
+            var readers = ImageIO.getImageReaders(imageInput);
+            if (!readers.hasNext()) throw new BadRequestException("Image cannot be decoded");
+            var reader = readers.next();
+            try {
+                reader.setInput(imageInput, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width < 1 || height < 1 || (long) width * height > maxImagePixels) {
+                    throw new BadRequestException("Image dimensions exceed the supported pixel limit");
+                }
+                var decoded = reader.read(0);
+                if (decoded == null) throw new BadRequestException("Image cannot be decoded");
+                decoded.flush();
+                return new ImageDimensions(width, height);
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException exception) {
+            throw new BadRequestException("Image cannot be decoded");
+        }
+    }
+
+    private record ImageDimensions(int width, int height) {}
 
     private String getFileExtension(String filename) {
         int dotIndex = filename.lastIndexOf('.');

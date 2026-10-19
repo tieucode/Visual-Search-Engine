@@ -1,6 +1,12 @@
 export type SearchMode = 'image' | 'text' | 'ocr';
 export type SearchType = 'IMAGE_ONLY' | 'TEXT_SEMANTIC' | 'TEXT_OCR';
 
+export const MAX_SEARCH_TEXT_LENGTH = 500;
+
+export interface TextSearchRequest {
+  text: string;
+}
+
 export interface SearchImageData {
   imageId: string;
   imageUrl: string;

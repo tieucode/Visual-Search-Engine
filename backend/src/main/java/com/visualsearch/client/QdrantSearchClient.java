@@ -24,10 +24,20 @@ public class QdrantSearchClient {
     }
 
     public List<ScoredImage> search(List<Float> vector, long offset, int limit) {
+        return query(Map.of("query", vector, "offset", offset, "limit", limit,
+                "with_payload", false, "with_vector", false), limit);
+    }
+
+    public List<ScoredImage> searchSimilar(UUID imageId, long offset, int limit) {
+        return query(Map.of("query", imageId.toString(), "offset", offset, "limit", limit,
+                "with_payload", false, "with_vector", false,
+                "filter", Map.of("must_not", List.of(Map.of("has_id", List.of(imageId.toString()))))), limit);
+    }
+
+    private List<ScoredImage> query(Map<String, Object> request, int limit) {
         try {
             QueryResponse response = client.post().uri("/collections/{collection}/points/query", collection)
-                    .body(Map.of("query", vector, "offset", offset, "limit", limit,
-                            "with_payload", false, "with_vector", false))
+                    .body(request)
                     .retrieve().body(QueryResponse.class);
             if (response == null || !"ok".equals(response.status()) || response.result() == null
                     || response.result().points() == null || response.result().points().size() > limit

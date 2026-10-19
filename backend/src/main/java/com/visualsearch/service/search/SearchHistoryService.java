@@ -66,26 +66,58 @@ public class SearchHistoryService {
     }
 
     @Transactional
+<<<<<<< HEAD
     public UUID createOcrSearch(User user, String query, int durationMs) {
         SearchHistory history = histories.save(SearchHistory.builder().user(user)
                 .searchType(SearchType.TEXT_OCR).queryText(query).executionDurationMs(durationMs).build());
+=======
+    public UUID createTextSearch(User user, String text, int durationMs) {
+        SearchHistory history = histories.save(SearchHistory.builder().user(user)
+                .searchType(SearchType.TEXT_SEMANTIC).queryText(text).executionDurationMs(durationMs).build());
+>>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
         return history.getId();
     }
 
     @Transactional(readOnly = true)
+<<<<<<< HEAD
     public String getOcrQuery(UUID searchId, User user) {
         SearchHistory history = histories.findByIdAndUserIdAndSearchType(searchId, user.getId(), SearchType.TEXT_OCR)
                 .orElseThrow(() -> new ResourceNotFoundException("OCR search not found"));
         return history.getQueryText();
+=======
+    public Image getLibraryImage(UUID imageId) {
+        return images.findById(imageId).filter(image -> image.getType() == ImageType.UPLOAD)
+                .orElseThrow(() -> new ResourceNotFoundException("Library image not found"));
+    }
+
+    @Transactional
+    public UUID createSimilarSearch(User user, UUID imageId, int durationMs) {
+        Image image = getLibraryImage(imageId);
+        return histories.save(SearchHistory.builder().user(user).searchType(SearchType.IMAGE_ONLY)
+                .queryImage(image).executionDurationMs(durationMs).build()).getId();
+>>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
     }
 
     @Transactional(readOnly = true)
     public Image getQueryImage(UUID searchId, User user) {
-        SearchHistory history = histories.findByIdAndUserIdAndSearchType(searchId, user.getId(), SearchType.IMAGE_ONLY)
-                .orElseThrow(() -> new ResourceNotFoundException("Image search not found"));
-        if (history.getQueryImage() == null || history.getQueryImage().getType() != ImageType.SEARCH) {
+        SearchHistory history = getSearch(searchId, user, SearchType.IMAGE_ONLY);
+        if (history.getQueryImage() == null) {
             throw new ResourceNotFoundException("Query image is no longer available");
         }
         return history.getQueryImage();
+    }
+
+    @Transactional(readOnly = true)
+    public String getQueryText(UUID searchId, User user) {
+        String text = getSearch(searchId, user, SearchType.TEXT_SEMANTIC).getQueryText();
+        if (text == null || text.isBlank()) {
+            throw new ResourceNotFoundException("Query text is no longer available");
+        }
+        return text;
+    }
+
+    private SearchHistory getSearch(UUID searchId, User user, SearchType searchType) {
+        return histories.findByIdAndUserIdAndSearchType(searchId, user.getId(), searchType)
+                .orElseThrow(() -> new ResourceNotFoundException("Search not found"));
     }
 }

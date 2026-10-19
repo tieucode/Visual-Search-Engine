@@ -173,6 +173,13 @@ Escape và nhấn ngoài panel; modal đang tải ảnh không đóng giữa ch�
 Tất cả lightbox/phóng to ảnh dùng chung `components/common/ImageViewer.tsx`.
 Không có panel trắng, viền hoặc nền riêng sau ảnh. Ảnh giữ tỉ lệ, không cắt,
 giới hạn vừa viewport và bo góc 20 px; nền ứng dụng tối 72% và blur 8 px.
+Khi mở, ảnh được co hoặc phóng đến kích thước lớn nhất vừa vùng xem, kể cả ảnh gốc nhỏ.
+Khung ảnh giữ nguyên kích thước và bo góc khi zoom; chỉ nội dung bên trong được
+phóng to quanh vị trí con trỏ (1–5 lần). Cuộn xuống giảm độ phóng về mức ban đầu,
+không thu nhỏ hơn khung. Kéo ảnh đã phóng lớn để xem phần bị khuất, không kéo lộ
+khoảng trống trong khung. Phím `+`/`-` thay đổi độ phóng,
+phím `0` hoặc nhấn đúp ảnh đưa về vừa màn hình. Đổi ảnh hoặc đổi kích thước vùng xem
+đặt lại độ phóng. Zoom không làm cuộn trang phía sau.
 Nút đóng phía trên; khi có nhiều ảnh, hiện điều hướng hai bên và bộ đếm phía dưới.
 Hỗ trợ phím trái/phải, Escape và nhấn vùng trống để đóng; khóa cuộn nền,
 giữ focus trong dialog và trả focus về vị trí mở. Áp dụng cả upload và chi tiết ảnh.

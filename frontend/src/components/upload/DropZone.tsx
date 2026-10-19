@@ -118,6 +118,7 @@ export function DropZone({ count, totalBytes, disabled, onFiles }: DropZoneProps
         ref={inputRef}
         className="sr-only"
         type="file"
+        disabled={disabled}
         multiple
         accept="image/jpeg,image/png,image/webp"
         tabIndex={-1}
@@ -125,7 +126,7 @@ export function DropZone({ count, totalBytes, disabled, onFiles }: DropZoneProps
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
           event.target.value = '';
-          if (files.length > 0) onFiles(files);
+          if (!disabled && files.length > 0) onFiles(files);
         }}
       />
     </div>

@@ -2,7 +2,11 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSearchFeed } from '../../hooks/useSearchFeed';
 import { recommendedDemo, searchDemo } from '../../services/mockSearchService';
+<<<<<<< HEAD
 import { nextImagePage, nextOcrPage, searchByImage, searchByOcr } from '../../services/searchService';
+=======
+import { nextSearchPage, searchByImage, searchByText } from '../../services/searchService';
+>>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
 import type { SearchMode } from '../../types/search';
 
 type QueryImage = { file: File; width: number; height: number };
@@ -35,8 +39,18 @@ function useWorkspace() {
     void feed.start(signal => recommendedDemo(signal), (page, signal) => recommendedDemo(signal, page.nextCursor!));
   };
   const loadText = (nextMode: 'text' | 'ocr', text: string) => {
+<<<<<<< HEAD
     setMode(nextMode);
     setSubmittedQuery(text);
+=======
+    setMode(nextMode); setSubmittedQuery(text);
+    if (nextMode === 'text') {
+      void feed.start(signal => searchByText(text, signal), nextSearchPage);
+    } else {
+      void feed.start(signal => searchDemo('ocr', text, signal), (page, signal) => searchDemo('ocr', text, signal, page.nextCursor!));
+    }
+  };
+>>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
 
     if (nextMode === 'ocr') {
       void feed.start(
@@ -65,7 +79,7 @@ function useWorkspace() {
       const text = (params.get('q') || '').trim();
       if (nextMode === 'image' && queryImage) {
         setMode('image');
-        void feed.start(signal => searchByImage(queryImage.file, signal), nextImagePage);
+        void feed.start(signal => searchByImage(queryImage.file, signal), nextSearchPage);
       } else if ((nextMode === 'text' || nextMode === 'ocr') && text) {
         setTextMode(nextMode); setQuery(text); loadText(nextMode, text);
       } else {
@@ -78,7 +92,7 @@ function useWorkspace() {
 
   const submitText = () => {
     const text = query.trim();
-    if (!text) return;
+    if (!text || feed.loading) return;
     const url = '/?' + new URLSearchParams({ mode: textMode, q: text });
     rootUrl.current = url; scrollY.current = 0;
     setImageModalOpen(false); loadText(textMode, text);
@@ -88,12 +102,12 @@ function useWorkspace() {
   const submitImage = (image: QueryImage) => {
     rootUrl.current = '/?mode=image'; scrollY.current = 0;
     setQueryImage(image); setMode('image'); setImageModalOpen(false);
-    void feed.start(signal => searchByImage(image.file, signal), nextImagePage);
+    void feed.start(signal => searchByImage(image.file, signal), nextSearchPage);
     navigate('/?mode=image'); window.scrollTo(0, 0);
   };
 
   const retry = () => {
-    if (mode === 'image' && queryImage) void feed.start(signal => searchByImage(queryImage.file, signal), nextImagePage);
+    if (mode === 'image' && queryImage) void feed.start(signal => searchByImage(queryImage.file, signal), nextSearchPage);
     else if (mode === 'text' || mode === 'ocr') loadText(mode, submittedQuery);
     else loadRecommendations();
   };

@@ -16,19 +16,20 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
-public class AiImageEmbeddingClient {
+public class AiEmbeddingClient {
     private final RestClient client;
     private final int vectorSize;
 
-    public AiImageEmbeddingClient(SearchProperties properties,
-                                  @Qualifier("aiSearchRestClient") RestClient client) {
+    public AiEmbeddingClient(SearchProperties properties,
+                             @Qualifier("aiSearchRestClient") RestClient client) {
         this.client = client;
         vectorSize = properties.getQdrant().getVectorSize();
     }
 
-    public List<Float> embed(byte[] bytes, String filename, String contentType) {
+    public List<Float> embedImage(byte[] bytes, String filename, String contentType) {
         var resource = new ByteArrayResource(bytes) {
             @Override
             public String getFilename() {
@@ -39,21 +40,29 @@ public class AiImageEmbeddingClient {
         headers.setContentType(MediaType.parseMediaType(contentType));
         var body = new LinkedMultiValueMap<String, Object>();
         body.add("file", new HttpEntity<>(resource, headers));
+        return requestEmbedding("/api/embedding/image", MediaType.MULTIPART_FORM_DATA, body, "image");
+    }
+
+    public List<Float> embedText(String text) {
+        return requestEmbedding("/api/embedding/text", MediaType.APPLICATION_JSON, Map.of("text", text), "text");
+    }
+
+    private List<Float> requestEmbedding(String path, MediaType contentType, Object body, String queryType) {
         try {
-            EmbeddingResponse response = client.post().uri("/api/embedding/image")
-                    .contentType(MediaType.MULTIPART_FORM_DATA).body(body)
+            EmbeddingResponse response = client.post().uri(path)
+                    .contentType(contentType).body(body)
                     .retrieve().body(EmbeddingResponse.class);
             if (response == null || !Boolean.TRUE.equals(response.success())
                     || response.dimension() == null || response.dimension() != vectorSize
                     || response.embedding() == null || response.embedding().size() != vectorSize
                     || response.embedding().stream().anyMatch(value -> value == null || !Float.isFinite(value))
                     || response.embedding().stream().allMatch(value -> value == 0f)) {
-                throw new SearchDependencyException("AI service returned an invalid image embedding");
+                throw new SearchDependencyException("AI service returned an invalid " + queryType + " embedding");
             }
             return response.embedding();
         } catch (RestClientResponseException exception) {
             if (exception.getStatusCode().value() == 400 || exception.getStatusCode().value() == 422) {
-                throw new BadRequestException("AI service could not process the query image");
+                throw new BadRequestException("AI service could not process the query " + queryType);
             }
             throw new SearchDependencyException("AI service is unavailable", exception);
         } catch (RestClientException exception) {
