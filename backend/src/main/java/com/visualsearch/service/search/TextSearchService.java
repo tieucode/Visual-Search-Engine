@@ -2,6 +2,7 @@ package com.visualsearch.service.search;
 
 import com.visualsearch.client.AiEmbeddingClient;
 import com.visualsearch.dto.search.SearchPageData;
+import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.dto.search.TextSearchRequest;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.SearchType;
@@ -18,7 +19,7 @@ public class TextSearchService {
     private final SearchHistoryService history;
     private final SearchPaginationService pagination;
 
-    public SearchPageData start(TextSearchRequest request, int size, User user) {
+    public SearchPageData<SearchImageData> start(TextSearchRequest request, int size, User user) {
         pagination.validatePageSize(size);
         long started = System.nanoTime();
         var vector = embeddings.embedText(request.text());
@@ -28,7 +29,7 @@ public class TextSearchService {
         return pagination.createPage(searchId, SearchType.TEXT_SEMANTIC, size, results);
     }
 
-    public SearchPageData next(UUID searchId, String cursor, User user) {
+    public SearchPageData<SearchImageData> next(UUID searchId, String cursor, User user) {
         // Check ownership and search type before calling AI or Qdrant.
         String text = history.getQueryText(searchId, user);
         var position = pagination.decodeCursor(cursor, searchId);

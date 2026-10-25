@@ -4,6 +4,7 @@ import com.visualsearch.dto.ApiErrorResponse;
 import com.visualsearch.dto.BaseResponse;
 import com.visualsearch.service.search.SearchPaginationService;
 import com.visualsearch.dto.search.SearchPageData;
+import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.dto.search.TextSearchRequest;
 import com.visualsearch.entity.User;
 import com.visualsearch.service.search.TextSearchService;
@@ -54,7 +55,7 @@ public class TextSearchController {
                     + "Use searchId and nextCursor to load more results without resubmitting the text.")
     @ApiResponse(responseCode = "201", description = "Search created; the first result page is in data",
             useReturnTypeSchema = true)
-    public BaseResponse<SearchPageData> start(
+    public BaseResponse<SearchPageData<SearchImageData>> start(
             @Valid @RequestBody TextSearchRequest request,
             @Parameter(description = "Results per page; preserved in the cursor",
                     schema = @Schema(minimum = "1", maximum = "100", defaultValue = SearchPaginationService.DEFAULT_PAGE_SIZE))
@@ -71,7 +72,7 @@ public class TextSearchController {
             useReturnTypeSchema = true)
     @ApiResponse(responseCode = "404", description = "Search not found, belongs to another user, has another type, or query text is missing",
             content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
-    public BaseResponse<SearchPageData> next(
+    public BaseResponse<SearchPageData<SearchImageData>> next(
             @PathVariable UUID searchId,
             @Parameter(description = "Opaque nextCursor from the previous page; send unchanged")
             @RequestParam String cursor,

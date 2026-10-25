@@ -66,25 +66,25 @@ public class SearchHistoryService {
     }
 
     @Transactional
-<<<<<<< HEAD
     public UUID createOcrSearch(User user, String query, int durationMs) {
         SearchHistory history = histories.save(SearchHistory.builder().user(user)
                 .searchType(SearchType.TEXT_OCR).queryText(query).executionDurationMs(durationMs).build());
-=======
+        return history.getId();
+    }
+
     public UUID createTextSearch(User user, String text, int durationMs) {
         SearchHistory history = histories.save(SearchHistory.builder().user(user)
                 .searchType(SearchType.TEXT_SEMANTIC).queryText(text).executionDurationMs(durationMs).build());
->>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
         return history.getId();
     }
 
     @Transactional(readOnly = true)
-<<<<<<< HEAD
     public String getOcrQuery(UUID searchId, User user) {
         SearchHistory history = histories.findByIdAndUserIdAndSearchType(searchId, user.getId(), SearchType.TEXT_OCR)
                 .orElseThrow(() -> new ResourceNotFoundException("OCR search not found"));
         return history.getQueryText();
-=======
+    }
+
     public Image getLibraryImage(UUID imageId) {
         return images.findById(imageId).filter(image -> image.getType() == ImageType.UPLOAD)
                 .orElseThrow(() -> new ResourceNotFoundException("Library image not found"));
@@ -95,7 +95,6 @@ public class SearchHistoryService {
         Image image = getLibraryImage(imageId);
         return histories.save(SearchHistory.builder().user(user).searchType(SearchType.IMAGE_ONLY)
                 .queryImage(image).executionDurationMs(durationMs).build()).getId();
->>>>>>> 148ac47b8fa6eaedd855324301e9d9e9cf893b69
     }
 
     @Transactional(readOnly = true)

@@ -2,6 +2,7 @@ package com.visualsearch.service.search;
 
 import com.visualsearch.config.JwtProperties;
 import com.visualsearch.dto.search.SearchPageData;
+import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.enums.SearchType;
 import com.visualsearch.exception.BadRequestException;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,11 @@ public class SearchPaginationService {
         key = new SecretKeySpec(properties.getSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     }
 
-    private String encode(UUID searchId, long offset, int size) {
+    public String encodeCursor(UUID searchId, long offset, int size) {
+        if (searchId == null || offset < 1 || offset > Long.MAX_VALUE - MAX_PAGE_SIZE - 1
+                || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Invalid search cursor position");
+        }
         String payload = ENCODER.encodeToString(("search-v1:" + searchId + ":" + offset + ":" + size)
                 .getBytes(StandardCharsets.UTF_8));
         return payload + "." + ENCODER.encodeToString(sign(payload));
@@ -65,10 +70,11 @@ public class SearchPaginationService {
         }
     }
 
-    public SearchPageData createPage(UUID searchId, SearchType searchType, int size,
-                                     SimilaritySearchService.ResultPage results) {
-        String nextCursor = results.nextOffset() == null ? null : encode(searchId, results.nextOffset(), size);
-        return new SearchPageData(searchId, searchType, results.items(), size, nextCursor != null, nextCursor);
+    public SearchPageData<SearchImageData> createPage(UUID searchId, SearchType searchType, int size,
+                                                       SimilaritySearchService.ResultPage results) {
+        String nextCursor = results.nextOffset() == null ? null
+                : encodeCursor(searchId, results.nextOffset(), size);
+        return new SearchPageData<>(searchId, searchType, results.items(), size, nextCursor != null, nextCursor);
     }
 
     private byte[] sign(String payload) {
