@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSearchFeed } from '../../hooks/useSearchFeed';
-import { recommendedDemo, searchDemo } from '../../services/mockSearchService';
-import { nextImagePage, nextOcrPage, searchByImage, searchByOcr } from '../../services/searchService';
-import { nextSearchPage, searchByImage, searchByText } from '../../services/searchService';
+import { recommendedDemo } from '../../services/mockSearchService';
+import { nextOcrPage, nextSearchPage, searchByImage, searchByOcr, searchByText } from '../../services/searchService';
 import type { SearchMode } from '../../types/search';
 
 type QueryImage = { file: File; width: number; height: number };
@@ -38,26 +37,11 @@ function useWorkspace() {
   const loadText = (nextMode: 'text' | 'ocr', text: string) => {
     setMode(nextMode);
     setSubmittedQuery(text);
-    setMode(nextMode); setSubmittedQuery(text);
     if (nextMode === 'text') {
       void feed.start(signal => searchByText(text, signal), nextSearchPage);
     } else {
-      void feed.start(signal => searchDemo('ocr', text, signal), (page, signal) => searchDemo('ocr', text, signal, page.nextCursor!));
+      void feed.start(signal => searchByOcr(text, signal), nextOcrPage);
     }
-  };
-
-    if (nextMode === 'ocr') {
-      void feed.start(
-          signal => searchByOcr(text, signal),
-          nextOcrPage,
-      );
-      return;
-    }
-
-    void feed.start(
-      signal => searchDemo('text', text, signal),
-      (page, signal) => searchDemo('text', text, signal, page.nextCursor!),
-    );
   };
   // Keep results alive across detail navigation. Defer initial work for StrictMode replay.
   useEffect(() => {
