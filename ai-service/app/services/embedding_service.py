@@ -1,105 +1,47 @@
+import logging
+
 import torch
-
 from PIL import Image
-from transformers import AutoProcessor, AutoModel
+from transformers import AutoModel, AutoProcessor
 
-from app.core.config import settings
+from app.core.config import Settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    def __init__(self):
-        print("Loading SigLIP model...")
-
-        # Device: CPU 
+    def __init__(self, settings: Settings) -> None:
         self.device = torch.device("cpu")
-
-        # Tên model lấy từ config.py
-        self.model_name = settings.siglip_model
-
-        # Load processor
-        self.processor = AutoProcessor.from_pretrained(self.model_name)
-
-        # Load model
-        self.model = AutoModel.from_pretrained(self.model_name)
-
-        # Đưa model lên CPU/GPU
+        logger.info("Loading SigLIP model=%s device=%s", settings.siglip_model, self.device)
+        self.processor = AutoProcessor.from_pretrained(settings.siglip_model)
+        self.model = AutoModel.from_pretrained(settings.siglip_model)
         self.model.to(self.device)
-
-        # Chuyển sang evaluation mode
         self.model.eval()
 
-        print(f"SigLIP loaded successfully: {self.model_name}")
-        print(f"Device: {self.device}")
+    @staticmethod
+    def _normalize(output) -> list[list[float]]:
+        features = output.pooler_output if hasattr(output, "pooler_output") else output
+        return torch.nn.functional.normalize(features, p=2, dim=-1).cpu().tolist()
 
     def embed_image(self, image: Image.Image) -> list[float]:
         if image is None:
             raise ValueError("Image không được để trống")
-
-        # Đảm bảo ảnh RGB
-        if image.mode != "RGB":
-            image = image.convert("RGB")
-
-        # Processor chuẩn bị input cho SigLIP
-        inputs = self.processor(images=image, return_tensors="pt")
-
-        # Đưa input lên cùng device với model
+        converted = image.convert("RGB") if image.mode != "RGB" else image
+        try:
+            inputs = self.processor(images=converted, return_tensors="pt")
+        finally:
+            if converted is not image:
+                converted.close()
         inputs = {key: value.to(self.device) for key, value in inputs.items()}
-
-        # Không tính gradient khi inference
         with torch.no_grad():
-            outputs = self.model.get_image_features(**inputs)
-
-            if hasattr(outputs, "pooler_output"):
-                image_features = outputs.pooler_output
-            else:
-                image_features = outputs
-
-        # Normalize vector
-        image_features = torch.nn.functional.normalize(image_features, p=2, dim=-1)
-
-        # Chuyển tensor -> list Python
-        embedding = image_features[0].cpu().tolist()
-
-        return embedding
+            return self._normalize(self.model.get_image_features(**inputs))[0]
 
     def embed_text(self, text: str) -> list[float]:
         if not text or not text.strip():
             raise ValueError("Text không được để trống")
-
-        # Chuẩn bị input cho SigLIP
         inputs = self.processor(
-            text=text,
-            return_tensors="pt",
-            padding="max_length",
-            truncation=True,
+            text=text, return_tensors="pt", padding="max_length", truncation=True,
         )
-
-        # Đưa input lên cùng device với model
-        inputs = {
-            key: value.to(self.device)
-            for key, value in inputs.items()
-        }
-
+        inputs = {key: value.to(self.device) for key, value in inputs.items()}
         with torch.no_grad():
-            output = self.model.get_text_features(**inputs)
-
-        # Transformers phiên bản mới trả về
-        # BaseModelOutputWithPooling
-        if hasattr(output, "pooler_output"):
-            text_features = output.pooler_output
-        else:
-            # Tương thích trường hợp phiên bản cũ
-            text_features = output
-
-        # Normalize vector
-        text_features = torch.nn.functional.normalize(
-            text_features,
-            p=2,
-            dim=-1
-        )
-
-        return text_features[0].cpu().tolist()
-
-
-# Singleton service
-embedding_service = EmbeddingService()
+            return self._normalize(self.model.get_text_features(**inputs))[0]

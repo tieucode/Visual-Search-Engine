@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from io import BytesIO
 
@@ -6,22 +7,22 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 
 from app.core.config import settings
-from app.services.image_processor import image_processor
+from app.api.dependencies import RuntimeDependency
+from app.schemas.process import ProcessResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api",
     tags=["Image Processing"],
 )
 
-# Giới hạn số tác vụ xử lý AI đồng thời
 processing_semaphore = asyncio.Semaphore(
     settings.max_active_processing
 )
 
-# Quản lý tổng số request đang xử lý hoặc chờ
 admission_lock = asyncio.Lock()
 in_flight_requests = 0
-
 
 async def try_admit_request() -> bool:
     """Chỉ tiếp nhận số request nằm trong giới hạn."""
@@ -34,7 +35,6 @@ async def try_admit_request() -> bool:
         in_flight_requests += 1
         return True
 
-
 async def release_request_slot() -> None:
     """Giải phóng một vị trí request."""
     global in_flight_requests
@@ -42,19 +42,15 @@ async def release_request_slot() -> None:
     async with admission_lock:
         in_flight_requests -= 1
 
-
-@router.post("/process-image")
-async def process_image(file: UploadFile = File(...)):
+@router.post("/process-image", response_model=ProcessResponse)
+async def process_image(runtime: RuntimeDependency, file: UploadFile = File(...)):
     start_time = time.perf_counter()
-    
+
     admitted = False
     processing_acquired = False
     processing_task = None
-    
+
     try:
-        # ==========================================
-        # 1. Kiểm tra file
-        # ==========================================
         if not file.filename:
             raise HTTPException(
                 status_code=400,
@@ -89,8 +85,7 @@ async def process_image(file: UploadFile = File(...)):
                 ),
                 headers={"Retry-After": "5"},
             )
-            
-        # Chờ đến lượt xử lý AI
+
         try:
             await asyncio.wait_for(
                 processing_semaphore.acquire(),
@@ -105,7 +100,6 @@ async def process_image(file: UploadFile = File(...)):
                 headers={"Retry-After": "5"},
             )
 
-        # Đọc ảnh có giới hạn dung lượng
         image_bytes = await file.read(
             settings.max_upload_size_bytes + 1
         )
@@ -125,7 +119,6 @@ async def process_image(file: UploadFile = File(...)):
                 ),
             )
 
-        # Đọc và kiểm tra ảnh
         try:
             with Image.open(BytesIO(image_bytes)) as source:
                 width, height = source.size
@@ -155,11 +148,9 @@ async def process_image(file: UploadFile = File(...)):
                 detail="Không thể đọc file ảnh",
             )
 
-        # Chạy xử lý AI ngoài event loop
-        # Shield giúp tác vụ nền không bị hủy khi client ngắt kết nối.
         processing_task = asyncio.create_task(
             asyncio.to_thread(
-                image_processor.process,
+                runtime.processor.process,
                 image=image,
             )
         )
@@ -168,8 +159,6 @@ async def process_image(file: UploadFile = File(...)):
             result = await asyncio.shield(processing_task)
 
         except asyncio.CancelledError:
-            # Chờ tác vụ nền kết thúc trước khi nhả semaphore,
-            # tránh một tác vụ khác chạy đồng thời ngoài ý muốn.
             try:
                 await processing_task
             except Exception:
@@ -177,23 +166,15 @@ async def process_image(file: UploadFile = File(...)):
 
             raise
 
-        # ==========================================
-        # Tính tổng thời gian, đơn vị milliseconds
-        # ==========================================
-        
         total_duration_ms = round(
             (time.perf_counter() - start_time) * 1000
         )
-        
-        # ==========================================
-        # Trả kết quả
-        # ==========================================
 
         return {
             "success": True,
             "filename": file.filename,
-            "embedding": result.get("embedding"),
-            "ocr": result.get("ocr", []),
+            "embedding": result.embedding,
+            "ocr": result.ocr,
             "total_duration_ms": total_duration_ms,
         }
 
@@ -207,15 +188,14 @@ async def process_image(file: UploadFile = File(...)):
         )
 
     except Exception as e:
-        print(f"Lỗi process-image: {e}")
+        logger.exception("Image processing failed")
 
         raise HTTPException(
             status_code=500,
             detail=f"Lỗi xử lý ảnh: {str(e)}",
         )
-        
+
     finally:
-        # Chỉ giải phóng những tài nguyên đã được lấy
         if processing_acquired:
             processing_semaphore.release()
 

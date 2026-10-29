@@ -1,36 +1,19 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from app.api.dependencies import RuntimeDependency
+from app.schemas.embedding import ImageEmbeddingResponse, TextEmbeddingRequest, TextEmbeddingResponse
 
 from app.services.image_preprocessing import preprocess_image
-from app.services.embedding_service import embedding_service
 
 router = APIRouter(
     prefix="/api/embedding",
     tags=["Embedding"],
 )
 
-
-# ==========================================
-# Request model cho Text Embedding
-# ==========================================
-
-
-class TextEmbeddingRequest(BaseModel):
-    text: str
-
-
-# ==========================================
-# Image Embedding
-# ==========================================
-
-
-@router.post("/image")
-async def image_embedding(file: UploadFile = File(...)):
-    # Kiểm tra tên file
+@router.post("/image", response_model=ImageEmbeddingResponse)
+async def image_embedding(runtime: RuntimeDependency, file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Tên file không hợp lệ")
 
-    # Các định dạng ảnh cho phép
     allowed_content_types = {
         "image/jpeg",
         "image/png",
@@ -49,17 +32,14 @@ async def image_embedding(file: UploadFile = File(...)):
         )
 
     try:
-        # Đọc file
         image_bytes = await file.read()
 
         if not image_bytes:
             raise HTTPException(status_code=400, detail="File ảnh rỗng")
 
-        # Preprocessing
         image = preprocess_image(image_bytes)
 
-        # Image -> Embedding
-        embedding = embedding_service.embed_image(image)
+        embedding = runtime.embedding.embed_image(image)
 
         return {
             "success": True,
@@ -78,21 +58,13 @@ async def image_embedding(file: UploadFile = File(...)):
             status_code=500, detail=f"Lỗi tạo image embedding: {str(e)}"
         )
 
-
-# ==========================================
-# Text Embedding
-# ==========================================
-
-
-@router.post("/text")
-async def text_embedding(request: TextEmbeddingRequest):
-    # Kiểm tra text
+@router.post("/text", response_model=TextEmbeddingResponse)
+async def text_embedding(request: TextEmbeddingRequest, runtime: RuntimeDependency):
     if not request.text or not request.text.strip():
         raise HTTPException(status_code=400, detail="Text không được để trống")
 
     try:
-        # Text -> Embedding
-        embedding = embedding_service.embed_text(request.text.strip())
+        embedding = runtime.embedding.embed_text(request.text.strip())
 
         return {
             "success": True,

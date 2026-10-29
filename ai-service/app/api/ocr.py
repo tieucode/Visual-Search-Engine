@@ -1,33 +1,25 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.services.ocr_service import ocr_service
+from app.api.dependencies import RuntimeDependency
+from app.schemas.ocr import OCRResponse
 from app.services.image_preprocessing import preprocess_image
-
 
 router = APIRouter(
     prefix="/api/ocr",
     tags=["OCR"]
 )
 
-
-@router.post("")
+@router.post("", response_model=OCRResponse)
 async def extract_text(
+    runtime: RuntimeDependency,
     file: UploadFile = File(...)
 ):
-
-    # ==========================================
-    # Validate filename
-    # ==========================================
 
     if not file.filename:
         raise HTTPException(
             status_code=400,
             detail="Tên file không hợp lệ"
         )
-
-    # ==========================================
-    # Validate image type
-    # ==========================================
 
     allowed_content_types = {
         "image/jpeg",
@@ -48,10 +40,6 @@ async def extract_text(
 
     try:
 
-        # ======================================
-        # Read file
-        # ======================================
-
         image_bytes = await file.read()
 
         if not image_bytes:
@@ -60,32 +48,19 @@ async def extract_text(
                 detail="File ảnh rỗng"
             )
 
-        # ======================================
-        # Image preprocessing
-        # ======================================
-
         image = preprocess_image(
             image_bytes
         )
 
-        # ======================================
-        # OCR
-        # Chạy EasyOCR CHỈ 1 LẦN
-        # ======================================
-
-        result = ocr_service.process(
+        result = runtime.ocr.process(
             image
         )
-
-        # ======================================
-        # Response
-        # ======================================
 
         return {
             "success": True,
             "filename": file.filename,
-            "text": result["text"],
-            "detections": result["detections"],
+            "text": result.text,
+            "detections": result.detections,
         }
 
     except ValueError as e:

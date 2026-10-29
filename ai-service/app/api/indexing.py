@@ -5,17 +5,17 @@ from io import BytesIO
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 
-from app.services.image_processor import image_processor
-
+from app.api.dependencies import RuntimeDependency
+from app.schemas.indexing import BatchResponse
 
 router = APIRouter(
     prefix="/api/v1/indexing",
     tags=["Indexing"],
 )
 
-
-@router.post("/batch")
+@router.post("/batch", response_model=BatchResponse)
 async def batch_indexing(
+    runtime: RuntimeDependency,
     imageIds: Annotated[list[str], Form(...)],
     images: Annotated[list[UploadFile], File(...)],
 ):
@@ -85,9 +85,8 @@ async def batch_indexing(
             if image.mode != "RGB":
                 image = image.convert("RGB")
 
-            result = image_processor.process(
+            result = runtime.processor.process(
                 image=image,
-                image_id=image_id,
             )
 
             processing_time = round(
@@ -99,8 +98,8 @@ async def batch_indexing(
                 "imageId": image_id,
                 "status": "SUCCESS",
                 "processingTimeMs": processing_time,
-                "embedding": result.get("embedding"),
-                "ocr": result.get("ocr", []),
+                "embedding": result.embedding,
+                "ocr": result.ocr,
                 "error": None,
             })
 
