@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
 from PIL import Image
 
 from app.core.config import Settings
+from app.core.cpu import configure_cpu
+from app.core.errors import ServiceError
 from app.core.execution import ExecutionStage, Priority, PriorityGate, settle, unavailable
 from app.services.image_preprocessing import preprocess_image
 from app.services.image_processor import ImageProcessor
@@ -38,6 +40,7 @@ class Runtime:
         }
 
     def start(self) -> None:
+        configure_cpu(self.settings)
         from app.services.embedding_service import EmbeddingService
         from app.services.ocr_service import OCRService
 
@@ -100,6 +103,9 @@ class Runtime:
     async def embed_text(self, text: str, priority: Priority) -> list[float]:
         return await self.stages["embedding"].run(priority, self.embedding.embed_text, text)
 
+    async def embed_images(self, images: list[Image.Image], priority: Priority) -> list[list[float]]:
+        return await self.stages["embedding"].run(priority, self.embedding.embed_images, images)
+
     async def extract_ocr(self, image: Image.Image, priority: Priority) -> OCRResult:
         return await self.stages["ocr"].run(priority, self.ocr.process, image)
 
@@ -107,6 +113,37 @@ class Runtime:
         embedding = await self.embed_image(image, priority)
         ocr = await self.extract_ocr(image, priority)
         return ProcessedImage(embedding, self.processor.indexed_ocr(ocr))
+
+    async def process_batch(self, images: list[Image.Image]) -> list[ProcessedImage | Exception]:
+        if not images:
+            return []
+        vectors: list[list[float] | Exception]
+        try:
+            vectors = list(await self.embed_images(images, "background"))
+            if len(vectors) != len(images):
+                raise RuntimeError("Embedding count does not match image count")
+        except ServiceError:
+            raise
+        except Exception:
+            logger.warning("Microbatch embedding failed; retrying individual images")
+            vectors = []
+            for image in images:
+                try:
+                    vectors.append(await self.embed_image(image, "background"))
+                except Exception as exc:
+                    vectors.append(exc)
+
+        results: list[ProcessedImage | Exception] = []
+        for image, vector in zip(images, vectors):
+            if isinstance(vector, Exception):
+                results.append(vector)
+                continue
+            try:
+                ocr = await self.extract_ocr(image, "background")
+                results.append(ProcessedImage(vector, self.processor.indexed_ocr(ocr)))
+            except Exception as exc:
+                results.append(exc)
+        return results
 
     async def close(self) -> None:
         self.ready = False

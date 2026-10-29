@@ -27,7 +27,7 @@ def failed_item(image_id: str, elapsed_ms: float, exc: Exception) -> BatchItem:
     if isinstance(exc, ServiceError):
         error = BatchError(code=exc.code, message=str(exc), retryable=exc.retryable)
     else:
-        logger.exception("Batch image processing failed")
+        logger.error("Batch image processing failed error_type=%s", type(exc).__name__)
         error = BatchError(code="PROCESSING_ERROR", message="Image processing failed", retryable=True)
     return BatchItem(
         imageId=image_id, status="FAILED", processingTimeMs=elapsed_ms, error=error,
