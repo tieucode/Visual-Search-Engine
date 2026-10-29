@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     max_batch_images: int = Field(default=20, gt=0)
     max_active_processing: int = Field(default=3, gt=0)
     max_waiting_requests: int = Field(default=6, ge=0)
+    search_reserved_waiting: int = Field(default=2, ge=0)
     max_queue_wait_seconds: int = Field(default=60, gt=0)
 
     @property

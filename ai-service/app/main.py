@@ -11,6 +11,7 @@ from app.api.indexing import router as indexing_router
 from app.api.ocr import router as ocr_router
 from app.api.process import router as process_router
 from app.core.config import settings
+from app.core.execution import settle
 from app.core.runtime import Runtime
 
 
@@ -19,11 +20,14 @@ async def lifespan(app: FastAPI):
     logging.basicConfig(level=logging.DEBUG if settings.debug else logging.INFO)
     runtime = Runtime(settings)
     app.state.runtime = runtime
+    startup = asyncio.create_task(asyncio.to_thread(runtime.start))
     try:
-        await asyncio.to_thread(runtime.start)
+        await asyncio.shield(startup)
         yield
     finally:
-        runtime.close()
+        await settle(startup)
+        shutdown = asyncio.create_task(runtime.close())
+        await settle(shutdown)
 
 
 app = FastAPI(

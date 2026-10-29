@@ -1,11 +1,16 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
 
 from app.core.config import Settings
 from app.core.errors import ServiceError
-from app.services.image_preprocessing import preprocess_image, validate_upload
+from app.core.execution import Priority
+from app.services.image_preprocessing import validate_upload
+
+if TYPE_CHECKING:
+    from app.core.runtime import Runtime
 
 
 @dataclass
@@ -46,12 +51,12 @@ async def read_upload(
 
 @asynccontextmanager
 async def uploaded_image(
-    file: UploadFile, settings: Settings, *, resize: bool = True,
+    file: UploadFile, runtime: "Runtime", *, priority: Priority, resize: bool = True,
     budget: UploadBudget | None = None,
 ):
     try:
-        data = await read_upload(file, settings, batch=budget is not None, budget=budget)
-        image = preprocess_image(data, settings, resize=resize)
+        data = await read_upload(file, runtime.settings, batch=budget is not None, budget=budget)
+        image = await runtime.decode(data, priority=priority, resize=resize)
         del data
         try:
             yield image

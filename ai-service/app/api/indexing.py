@@ -23,9 +23,15 @@ async def batch_indexing(
             results = []
             for image_id, file in zip(imageIds, images):
                 started = time.perf_counter()
+
+                async def work():
+                    async with uploaded_image(
+                        file, runtime, priority="background", resize=False, budget=budget,
+                    ) as image:
+                        return await runtime.process(image, "background")
+
                 try:
-                    async with uploaded_image(file, runtime.settings, resize=False, budget=budget) as image:
-                        result = runtime.processor.process(image)
+                    result = await runtime.run("background", work)
                     results.append(BatchItem(
                         imageId=image_id, status="SUCCESS",
                         processingTimeMs=round((time.perf_counter() - started) * 1000, 2),
@@ -35,6 +41,8 @@ async def batch_indexing(
                     results.append(failed_item(
                         image_id, round((time.perf_counter() - started) * 1000, 2), exc,
                     ))
+                finally:
+                    await file.close()
             return BatchResponse(results=results)
         finally:
             for file in images:
