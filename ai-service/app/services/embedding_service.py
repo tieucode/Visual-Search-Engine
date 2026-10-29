@@ -1,105 +1,64 @@
+import logging
+from contextlib import ExitStack
+from pathlib import Path
+
 import torch
-
 from PIL import Image
-from transformers import AutoProcessor, AutoModel
+from transformers import AutoModel, AutoProcessor
 
-from app.core.config import settings
+from app.core.config import Settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    def __init__(self):
-        print("Loading SigLIP model...")
-
-        # Device: CPU 
-        self.device = torch.device("cpu")
-
-        # Tên model lấy từ config.py
-        self.model_name = settings.siglip_model
-
-        # Load processor
-        self.processor = AutoProcessor.from_pretrained(self.model_name)
-
-        # Load model
-        self.model = AutoModel.from_pretrained(self.model_name)
-
-        # Đưa model lên CPU/GPU
+    def __init__(self, settings: Settings) -> None:
+        self.device = torch.device(settings.device)
+        cache = str(Path(settings.model_cache_dir).expanduser() / "huggingface" / "hub")
+        logger.info("Loading SigLIP model=%s device=%s", settings.siglip_model, self.device)
+        self.processor = AutoProcessor.from_pretrained(settings.siglip_model, cache_dir=cache)
+        self.model = AutoModel.from_pretrained(
+            settings.siglip_model, cache_dir=cache, torch_dtype=torch.float32,
+        )
         self.model.to(self.device)
-
-        # Chuyển sang evaluation mode
         self.model.eval()
 
-        print(f"SigLIP loaded successfully: {self.model_name}")
-        print(f"Device: {self.device}")
+    @staticmethod
+    def _normalize(output, expected_count: int) -> list[list[float]]:
+        features = output.pooler_output if hasattr(output, "pooler_output") else output
+        if not isinstance(features, torch.Tensor) or features.shape != (expected_count, 768):
+            raise RuntimeError("SigLIP returned an unexpected embedding shape")
+        features = torch.nn.functional.normalize(features.float(), p=2, dim=-1)
+        if not torch.isfinite(features).all() or (features.norm(dim=-1) == 0).any():
+            raise RuntimeError("SigLIP returned invalid embedding values")
+        return features.cpu().tolist()
 
     def embed_image(self, image: Image.Image) -> list[float]:
-        if image is None:
-            raise ValueError("Image không được để trống")
+        return self.embed_images([image])[0]
 
-        # Đảm bảo ảnh RGB
-        if image.mode != "RGB":
-            image = image.convert("RGB")
-
-        # Processor chuẩn bị input cho SigLIP
-        inputs = self.processor(images=image, return_tensors="pt")
-
-        # Đưa input lên cùng device với model
-        inputs = {key: value.to(self.device) for key, value in inputs.items()}
-
-        # Không tính gradient khi inference
-        with torch.no_grad():
-            outputs = self.model.get_image_features(**inputs)
-
-            if hasattr(outputs, "pooler_output"):
-                image_features = outputs.pooler_output
-            else:
-                image_features = outputs
-
-        # Normalize vector
-        image_features = torch.nn.functional.normalize(image_features, p=2, dim=-1)
-
-        # Chuyển tensor -> list Python
-        embedding = image_features[0].cpu().tolist()
-
-        return embedding
+    def embed_images(self, images: list[Image.Image]) -> list[list[float]]:
+        if not images:
+            return []
+        with ExitStack() as stack:
+            rgb_images = []
+            for image in images:
+                if image is None:
+                    raise ValueError("Image không được để trống")
+                if image.mode != "RGB":
+                    image = stack.enter_context(image.convert("RGB"))
+                rgb_images.append(image)
+            with torch.inference_mode():
+                inputs = self.processor(images=rgb_images, return_tensors="pt")
+                inputs = {key: value.to(self.device) for key, value in inputs.items()}
+                return self._normalize(self.model.get_image_features(**inputs), len(images))
 
     def embed_text(self, text: str) -> list[float]:
         if not text or not text.strip():
             raise ValueError("Text không được để trống")
-
-        # Chuẩn bị input cho SigLIP
-        inputs = self.processor(
-            text=text,
-            return_tensors="pt",
-            padding="max_length",
-            truncation=True,
-        )
-
-        # Đưa input lên cùng device với model
-        inputs = {
-            key: value.to(self.device)
-            for key, value in inputs.items()
-        }
-
-        with torch.no_grad():
-            output = self.model.get_text_features(**inputs)
-
-        # Transformers phiên bản mới trả về
-        # BaseModelOutputWithPooling
-        if hasattr(output, "pooler_output"):
-            text_features = output.pooler_output
-        else:
-            # Tương thích trường hợp phiên bản cũ
-            text_features = output
-
-        # Normalize vector
-        text_features = torch.nn.functional.normalize(
-            text_features,
-            p=2,
-            dim=-1
-        )
-
-        return text_features[0].cpu().tolist()
-
-
-# Singleton service
-embedding_service = EmbeddingService()
+        with torch.inference_mode():
+            inputs = self.processor(
+                text=text, return_tensors="pt", padding="max_length", truncation=True,
+                max_length=self.model.config.text_config.max_position_embeddings,
+            )
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+            return self._normalize(self.model.get_text_features(**inputs), 1)[0]
