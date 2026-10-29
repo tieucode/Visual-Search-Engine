@@ -1,17 +1,15 @@
-from typing import Annotated
 import time
-from io import BytesIO
+from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from PIL import Image, UnidentifiedImageError
+from fastapi import APIRouter, File, Form, UploadFile
 
 from app.api.dependencies import RuntimeDependency
-from app.schemas.indexing import BatchResponse
+from app.api.errors import api_errors, failed_item
+from app.api.uploads import uploaded_image, validate_batch
+from app.schemas.indexing import BatchItem, BatchResponse
 
-router = APIRouter(
-    prefix="/api/v1/indexing",
-    tags=["Indexing"],
-)
+router = APIRouter(prefix="/api/v1/indexing", tags=["Indexing"])
+
 
 @router.post("/batch", response_model=BatchResponse)
 async def batch_indexing(
@@ -19,110 +17,25 @@ async def batch_indexing(
     imageIds: Annotated[list[str], Form(...)],
     images: Annotated[list[UploadFile], File(...)],
 ):
-    if len(imageIds) != len(images):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Số lượng imageIds ({len(imageIds)}) "
-                f"không khớp số lượng images ({len(images)})"
-            ),
-        )
-
-    results = []
-
-    for image_id, file in zip(imageIds, images):
-
-        start_time = time.perf_counter()
-
+    with api_errors("batch_indexing"):
         try:
-            image_bytes = await file.read()
-
-            if not image_bytes:
-                processing_time = round(
-                    (time.perf_counter() - start_time) * 1000,
-                    2,
-                )
-
-                results.append({
-                    "imageId": image_id,
-                    "status": "FAILED",
-                    "processingTimeMs": processing_time,
-                    "embedding": None,
-                    "ocr": [],
-                    "error": {
-                        "code": "EMPTY_FILE",
-                        "message": "Image file is empty",
-                        "retryable": False,
-                    },
-                })
-                continue
-
-            try:
-                image = Image.open(BytesIO(image_bytes))
-                image.load()
-
-            except (UnidentifiedImageError, OSError):
-
-                processing_time = round(
-                    (time.perf_counter() - start_time) * 1000,
-                    2,
-                )
-
-                results.append({
-                    "imageId": image_id,
-                    "status": "FAILED",
-                    "processingTimeMs": processing_time,
-                    "embedding": None,
-                    "ocr": [],
-                    "error": {
-                        "code": "IMAGE_CORRUPTED",
-                        "message": "Cannot decode image stream with PIL",
-                        "retryable": False,
-                    },
-                })
-                continue
-
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-
-            result = runtime.processor.process(
-                image=image,
-            )
-
-            processing_time = round(
-                (time.perf_counter() - start_time) * 1000,
-                2,
-            )
-
-            results.append({
-                "imageId": image_id,
-                "status": "SUCCESS",
-                "processingTimeMs": processing_time,
-                "embedding": result.embedding,
-                "ocr": result.ocr,
-                "error": None,
-            })
-
-        except Exception as e:
-
-            processing_time = round(
-                (time.perf_counter() - start_time) * 1000,
-                2,
-            )
-
-            results.append({
-                "imageId": image_id,
-                "status": "FAILED",
-                "processingTimeMs": processing_time,
-                "embedding": None,
-                "ocr": [],
-                "error": {
-                    "code": "PROCESSING_ERROR",
-                    "message": str(e),
-                    "retryable": True,
-                },
-            })
-
-    return {
-        "results": results
-    }
+            budget = validate_batch(imageIds, images, runtime.settings)
+            results = []
+            for image_id, file in zip(imageIds, images):
+                started = time.perf_counter()
+                try:
+                    async with uploaded_image(file, runtime.settings, resize=False, budget=budget) as image:
+                        result = runtime.processor.process(image)
+                    results.append(BatchItem(
+                        imageId=image_id, status="SUCCESS",
+                        processingTimeMs=round((time.perf_counter() - started) * 1000, 2),
+                        embedding=result.embedding, ocr=result.ocr,
+                    ))
+                except Exception as exc:
+                    results.append(failed_item(
+                        image_id, round((time.perf_counter() - started) * 1000, 2), exc,
+                    ))
+            return BatchResponse(results=results)
+        finally:
+            for file in images:
+                await file.close()
