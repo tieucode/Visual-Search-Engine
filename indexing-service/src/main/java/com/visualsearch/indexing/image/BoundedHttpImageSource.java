@@ -45,46 +45,63 @@ public class BoundedHttpImageSource {
                 .GET()
                 .build();
 
+        var pending = httpClient.sendAsync(request, info -> {
+            if (info.statusCode() != 200) throw classifyStatus(info.statusCode(), uri);
+            long length = info.headers().firstValueAsLong("Content-Length").orElse(-1);
+            if (length == 0 || length > properties.getMaxBytes()) {
+                throw new PermanentImageException("Image Content-Length is empty or exceeds byte limit");
+            }
+            return new BoundedBodySubscriber(properties.getMaxBytes());
+        });
         try {
-            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            int status = response.statusCode();
-            if (status != 200) {
-                closeQuietly(response.body());
-                throw classifyStatus(status, uri);
-            }
-
-            long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1);
-            if (declaredLength == 0) {
-                closeQuietly(response.body());
-                throw new PermanentImageException("Image response is empty: " + safeUri(uri));
-            }
-            if (declaredLength > properties.getMaxBytes()) {
-                closeQuietly(response.body());
-                throw new PermanentImageException(
-                        "Image Content-Length " + declaredLength + " exceeds limit " + properties.getMaxBytes());
-            }
-
-            byte[] bytes;
-            try (InputStream input = response.body()) {
-                bytes = readBounded(input, properties.getMaxBytes());
-            }
-            if (bytes.length == 0) {
-                throw new PermanentImageException("Downloaded image contains 0 bytes: " + safeUri(uri));
-            }
+            var response = pending.get(properties.getRequestTimeout().toMillis(),
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            byte[] bytes = response.body();
+            if (bytes.length == 0) throw new PermanentImageException("Downloaded image contains 0 bytes");
             String contentType = response.headers().firstValue("Content-Type")
-                    .map(value -> value.split(";", 2)[0].trim())
-                    .orElse("application/octet-stream");
+                    .map(value -> value.split(";", 2)[0].trim()).orElse("application/octet-stream");
             return new DownloadedImage(bytes, contentType);
-        } catch (PermanentImageException | TransientDependencyException exception) {
-            throw exception;
-        } catch (HttpTimeoutException | ConnectException exception) {
-            throw new TransientDependencyException("Timed out connecting to image source " + safeUri(uri), exception);
+        } catch (java.util.concurrent.TimeoutException exception) {
+            throw new TransientDependencyException("Image download timed out for " + safeUri(uri), exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new TransientDependencyException("Image download was interrupted", exception);
-        } catch (IOException exception) {
-            throw new TransientDependencyException("Image download failed for " + safeUri(uri), exception);
+        } catch (java.util.concurrent.ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            while (cause instanceof java.util.concurrent.CompletionException && cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            if (cause instanceof PermanentImageException permanent) throw permanent;
+            if (cause instanceof TransientDependencyException transientFailure) throw transientFailure;
+            throw new TransientDependencyException("Image download failed for " + safeUri(uri), cause);
+        } finally {
+            pending.cancel(true);
         }
+    }
+
+    private static final class BoundedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
+        private final HttpResponse.BodySubscriber<byte[]> delegate = HttpResponse.BodySubscribers.ofByteArray();
+        private final long maxBytes;
+        private long received;
+        private java.util.concurrent.Flow.Subscription subscription;
+        private boolean done;
+        private BoundedBodySubscriber(long maxBytes) { this.maxBytes = maxBytes; }
+        public java.util.concurrent.CompletionStage<byte[]> getBody() { return delegate.getBody(); }
+        public void onSubscribe(java.util.concurrent.Flow.Subscription subscription) {
+            this.subscription = subscription;
+            delegate.onSubscribe(subscription);
+        }
+        public void onNext(java.util.List<java.nio.ByteBuffer> buffers) {
+            if (done) return;
+            for (var buffer : buffers) received += buffer.remaining();
+            if (received > maxBytes) {
+                done = true;
+                subscription.cancel();
+                delegate.onError(new PermanentImageException("Downloaded image exceeds byte limit " + maxBytes));
+            } else delegate.onNext(buffers);
+        }
+        public void onError(Throwable failure) { if (!done) { done = true; delegate.onError(failure); } }
+        public void onComplete() { if (!done) { done = true; delegate.onComplete(); } }
     }
 
     private URI validateUri(String imageUrl) {
@@ -119,30 +136,8 @@ public class BoundedHttpImageSource {
         return new PermanentImageException(message);
     }
 
-    private byte[] readBounded(InputStream input, long maxBytes) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
-        long total = 0;
-        int read;
-        while ((read = input.read(buffer)) != -1) {
-            total += read;
-            if (total > maxBytes) {
-                throw new PermanentImageException("Downloaded image exceeds limit " + maxBytes + " bytes");
-            }
-            output.write(buffer, 0, read);
-        }
-        return output.toByteArray();
-    }
-
     private String safeUri(URI uri) {
         return uri.getScheme() + "://" + uri.getHost() + uri.getPath();
     }
 
-    private void closeQuietly(InputStream input) {
-        try {
-            input.close();
-        } catch (IOException ignored) {
-            // The response is already unusable; there is nothing else to recover here.
-        }
-    }
 }
