@@ -42,29 +42,47 @@ public class QdrantIndexClient {
         }
     }
 
-    public void upsert(UUID imageId, UUID batchId, List<Float> embedding) {
-        if (embedding == null || embedding.size() != properties.getVectorSize()) {
-            throw new QdrantOperationException(
-                    "Embedding dimension must be " + properties.getVectorSize() + " but was "
-                            + (embedding == null ? 0 : embedding.size()),
-                    false);
-        }
-        ensureCollection();
+    public record Point(UUID imageId, UUID batchId, List<Float> embedding) {}
 
+    public Map<UUID, QdrantOperationException> upsertBatch(List<Point> points) {
+        Map<UUID, QdrantOperationException> failures = new LinkedHashMap<>();
+        List<Point> valid = new java.util.ArrayList<>();
+        for (Point point : points) {
+            if (point.embedding() == null || point.embedding().size() != properties.getVectorSize()
+                    || point.embedding().stream().anyMatch(value -> value == null || !Float.isFinite(value))) {
+                failures.put(point.imageId(), new QdrantOperationException("Invalid embedding values or dimension", false));
+            } else valid.add(point);
+        }
+        if (valid.isEmpty()) return failures;
+        try {
+            sendPoints(valid);
+        } catch (QdrantOperationException failure) {
+            if (failure.isRetryable() || valid.size() == 1) {
+                valid.forEach(point -> failures.put(point.imageId(), failure));
+            } else {
+                for (Point point : valid) {
+                    try { sendPoints(List.of(point)); }
+                    catch (QdrantOperationException itemFailure) { failures.put(point.imageId(), itemFailure); }
+                }
+            }
+        }
+        log.info("Qdrant batch completed imageCount={} failed={}", points.size(), failures.size());
+        return failures;
+    }
+
+    private Map<String, Object> payload(Point point) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("imageId", imageId.toString());
-        if (batchId != null) {
-            payload.put("batchId", batchId.toString());
-        }
-        Map<String, Object> point = new LinkedHashMap<>();
-        point.put("id", imageId.toString());
-        point.put("vector", embedding);
-        point.put("payload", payload);
+        payload.put("imageId", point.imageId().toString());
+        if (point.batchId() != null) payload.put("batchId", point.batchId().toString());
+        return Map.of("id", point.imageId().toString(), "vector", point.embedding(), "payload", payload);
+    }
 
+    private void sendPoints(List<Point> points) {
+        ensureCollection();
         try {
             restClient.put()
                     .uri("/collections/{collection}/points?wait=true", properties.getCollection())
-                    .body(Map.of("points", List.of(point)))
+                    .body(Map.of("points", points.stream().map(this::payload).toList()))
                     .retrieve()
                     .onStatus(status -> status.value() >= 400, (request, response) -> {
                         throw classifyStatus(response.getStatusCode().value(), "upsert point");
@@ -84,10 +102,14 @@ public class QdrantIndexClient {
         }
     }
 
-    public synchronized void ensureCollection() {
-        if (collectionReady.get()) {
-            return;
+    public void ensureCollection() {
+        if (collectionReady.get()) return;
+        synchronized (collectionReady) {
+            if (!collectionReady.get()) inspectCollection();
         }
+    }
+
+    private void inspectCollection() {
         try {
             restClient.get()
                     .uri("/collections/{collection}", properties.getCollection())
