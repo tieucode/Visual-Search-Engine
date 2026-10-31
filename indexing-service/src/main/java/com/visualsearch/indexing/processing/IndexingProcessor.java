@@ -40,6 +40,7 @@ public class IndexingProcessor {
     private final IndexingProperties properties;
     private final IndexingMessageValidator validator;
     private final ImagePreparation preparation;
+    private final org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor imagePreparationExecutor;
     private final AiResultMapper resultMapper;
     private final RetryPolicy retryPolicy;
     private final IndexingStateService stateService;
@@ -78,43 +79,45 @@ public class IndexingProcessor {
             return result(retries, counters, started);
         }
 
-        List<PreparedWork> prepared = new ArrayList<>();
-        for (ImageIndexingMessage.ImageItem item : pendingItems) {
-            ImageState state = states.get(item.imageId());
-            try {
-                PreparedImage image = preparation.prepare(item);
-                prepared.add(new PreparedWork(item, state, image));
-            } catch (PermanentImageException exception) {
-                if (stateService.recordPermanentImageFailure(
-                        item.imageId(), state.batchId(), exception.getMessage())) {
-                    counters.failed++;
-                } else {
-                    counters.skipped++;
+        try (var pipeline = new PreparationPipeline(pendingItems, properties.getAi().getBatchSize(),
+                imagePreparationExecutor, preparation)) {
+            while (pipeline.hasNext()) {
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new IllegalStateException("Indexing interrupted");
                 }
-                log.warn("Permanent image failure imageId={} reason={}",
-                        item.imageId(), exception.getMessage());
-            } catch (TransientDependencyException exception) {
-                handleTransient(item, state, currentAttempt, exception.getMessage(), false, retries, counters);
-            }
-        }
-
-        if (prepared.isEmpty()) {
-            return result(retries, counters, started);
-        }
-
-        int aiBatchSize = properties.getAi().getBatchSize();
-        for (int start = 0; start < prepared.size(); start += aiBatchSize) {
-            List<PreparedWork> aiBatch = prepared.subList(
-                    start, Math.min(start + aiBatchSize, prepared.size()));
-            try {
-                AiBatchResponse aiResponse = aiServiceClient.index(
-                        aiBatch.stream().map(PreparedWork::image).toList(),
-                        () -> markBatchRetryStarted(aiBatch, currentAttempt));
-                applyAiResults(aiBatch, aiResponse, currentAttempt, retries, counters);
-            } catch (AiCircuitOpenException exception) {
-                addRetry(retries, currentAttempt, aiBatch.stream().map(PreparedWork::item).toList());
-            } catch (AiServiceException exception) {
-                handleAiRequestFailure(aiBatch, exception, currentAttempt, retries, counters);
+                if (!aiServiceClient.isAvailableForBusiness()) {
+                    addRetry(retries, currentAttempt, pipeline.remaining());
+                    break;
+                }
+                List<PreparedWork> prepared = new ArrayList<>();
+                for (var outcome : pipeline.next()) {
+                    var item = outcome.item();
+                    var state = states.get(item.imageId());
+                    if (outcome.failure() == null) {
+                        prepared.add(new PreparedWork(item, state, outcome.image()));
+                    } else if (outcome.failure() instanceof PermanentImageException failure) {
+                        if (stateService.recordPermanentImageFailure(item.imageId(), state.batchId(), failure.getMessage())) {
+                            counters.failed++;
+                        } else {
+                            counters.skipped++;
+                        }
+                    } else if (outcome.failure() instanceof TransientDependencyException failure) {
+                        handleTransient(item, state, currentAttempt, failure.getMessage(), false, retries, counters);
+                    } else {
+                        throw outcome.failure();
+                    }
+                }
+                if (prepared.isEmpty()) continue;
+                try {
+                    AiBatchResponse response = aiServiceClient.index(
+                            prepared.stream().map(PreparedWork::image).toList(),
+                            () -> markBatchRetryStarted(prepared, currentAttempt));
+                    applyAiResults(prepared, response, currentAttempt, retries, counters);
+                } catch (AiCircuitOpenException exception) {
+                    addRetry(retries, currentAttempt, prepared.stream().map(PreparedWork::item).toList());
+                } catch (AiServiceException exception) {
+                    handleAiRequestFailure(prepared, exception, currentAttempt, retries, counters);
+                }
             }
         }
         return result(retries, counters, started);

@@ -81,6 +81,9 @@ public class IndexingProperties {
     @Setter
     public static class Image {
         @Min(1)
+        @Max(8)
+        private int preparationConcurrency = 2;
+        @Min(1)
         private long maxBytes = 20L * 1024 * 1024;
         @Min(1)
         private long maxPixels = 40_000_000L;

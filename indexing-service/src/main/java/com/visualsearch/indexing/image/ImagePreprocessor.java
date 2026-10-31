@@ -41,7 +41,7 @@ public class ImagePreprocessor {
             throw new PermanentImageException("Image contains 0 bytes");
         }
 
-        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(inputBytes))) {
+        try (ImageInputStream input = new javax.imageio.stream.MemoryCacheImageInputStream(new ByteArrayInputStream(inputBytes))) {
             if (input == null) {
                 throw new PermanentImageException("Could not create image decoder input");
             }
@@ -73,7 +73,9 @@ public class ImagePreprocessor {
                 }
 
                 BufferedImage normalized = resizeAndConvertToRgb(decoded);
-                byte[] output = encodeJpeg(normalized);
+                byte[] output;
+                try { output = encodeJpeg(normalized); }
+                finally { decoded.flush(); normalized.flush(); }
                 return new PreparedImage(
                         imageId,
                         output,
@@ -136,7 +138,7 @@ public class ImagePreprocessor {
         }
         ImageWriter writer = writers.next();
         try (ByteArrayOutputStream output = new ByteArrayOutputStream();
-             ImageOutputStream imageOutput = ImageIO.createImageOutputStream(output)) {
+             ImageOutputStream imageOutput = new javax.imageio.stream.MemoryCacheImageOutputStream(output)) {
             writer.setOutput(imageOutput);
             ImageWriteParam parameters = writer.getDefaultWriteParam();
             if (parameters.canWriteCompressed()) {

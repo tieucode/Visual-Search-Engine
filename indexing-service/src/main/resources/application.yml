@@ -53,6 +53,7 @@ indexing:
     publisher-confirm-timeout: ${RABBITMQ_PUBLISHER_CONFIRM_TIMEOUT:5s}
     shutdown-timeout: ${INDEXING_SHUTDOWN_TIMEOUT:60s}
   image:
+    preparation-concurrency: ${INDEXING_IMAGE_PREPARATION_CONCURRENCY:2}
     max-bytes: ${INDEXING_MAX_IMAGE_BYTES:20971520}
     max-pixels: ${INDEXING_MAX_IMAGE_PIXELS:40000000}
     max-dimension: ${INDEXING_MAX_IMAGE_DIMENSION:1024}
