@@ -161,6 +161,7 @@ public class IndexingProcessor {
         Map<UUID, List<AiBatchResponse.Result>> grouped = resultMapper.group(response,
                 prepared.stream().map(work -> work.item().imageId()).collect(Collectors.toSet()));
 
+        Map<UUID, AiBatchResponse.Result> successes = new LinkedHashMap<>();
         for (PreparedWork work : prepared) {
             List<AiBatchResponse.Result> matches = grouped.getOrDefault(work.item().imageId(), List.of());
             if (matches.size() != 1) {
@@ -183,36 +184,29 @@ public class IndexingProcessor {
                 continue;
             }
 
-            try {
-                qdrantIndexClient.upsert(
-                        work.item().imageId(),
-                        work.state().batchId(),
-                        result.safeEmbedding());
-                List<OcrData> ocrItems = result.safeOcr().stream().map(resultMapper::toOcrData).toList();
-                if (stateService.recordSuccess(work.item().imageId(), work.state().batchId(), ocrItems)) {
+            successes.put(work.item().imageId(), result);
+        }
+        List<PreparedWork> successfulWork = prepared.stream()
+                .filter(work -> successes.containsKey(work.item().imageId())).toList();
+        var failures = qdrantIndexClient.upsertBatch(successfulWork.stream()
+                .map(work -> new QdrantIndexClient.Point(work.item().imageId(), work.state().batchId(),
+                        successes.get(work.item().imageId()).safeEmbedding())).toList());
+        for (PreparedWork work : successfulWork) {
+            var failure = failures.get(work.item().imageId());
+            if (failure == null) {
+                var ocr = successes.get(work.item().imageId()).safeOcr().stream()
+                        .map(resultMapper::toOcrData).toList();
+                if (stateService.recordSuccess(work.item().imageId(), work.state().batchId(), ocr)) {
                     counters.succeeded++;
-                    log.info("Image indexing succeeded imageId={} batchId={} retryCount={}",
-                            work.item().imageId(), work.state().batchId(), currentAttempt);
-                } else {
-                    counters.skipped++;
-                }
-            } catch (QdrantOperationException exception) {
-                if (exception.isRetryable()) {
-                    handleTransient(
-                            work.item(),
-                            work.state(),
-                            currentAttempt,
-                            exception.getMessage(),
-                            currentAttempt > 0,
-                            retries,
-                            counters);
-                } else if (stateService.recordPermanentFailure(
-                        work.item().imageId(), work.state().batchId(), currentAttempt, exception.getMessage())) {
-                    counters.failed++;
-                } else {
-                    counters.skipped++;
-                }
-            }
+                    log.debug("Image indexing succeeded imageId={}", work.item().imageId());
+                } else counters.skipped++;
+            } else if (failure.isRetryable()) {
+                handleTransient(work.item(), work.state(), currentAttempt, failure.getMessage(),
+                        currentAttempt > 0, retries, counters);
+            } else if (stateService.recordPermanentFailure(work.item().imageId(), work.state().batchId(),
+                    currentAttempt, failure.getMessage())) {
+                counters.failed++;
+            } else counters.skipped++;
         }
     }
 
