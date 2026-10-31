@@ -1,7 +1,9 @@
 package com.visualsearch.indexing.config;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
 @Configuration
 public class ImageExecutionConfiguration {
     @Bean
@@ -13,7 +15,8 @@ public class ImageExecutionConfiguration {
         executor.setQueueCapacity(properties.getAi().getBatchSize());
         executor.setThreadNamePrefix("image-preparation-");
         executor.setWaitForTasksToCompleteOnShutdown(false);
-        executor.setAwaitTerminationSeconds((int) properties.getRabbit().getShutdownTimeout().toSeconds());
+        executor.setAwaitTerminationSeconds(
+                (int) properties.getRabbit().getShutdownTimeout().toSeconds());
         return executor;
     }
 }
