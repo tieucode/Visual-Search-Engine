@@ -39,6 +39,15 @@ public class IndexingProperties {
     @NotNull
     private Qdrant qdrant = new Qdrant();
 
+    @jakarta.validation.constraints.AssertTrue(message = "Timeouts and intervals must be positive")
+    public boolean isDurationsValid() {
+        return java.util.stream.Stream.of(rabbit.retryDelay, rabbit.publisherConfirmTimeout,
+                rabbit.shutdownTimeout, image.connectTimeout, image.requestTimeout,
+                ai.connectTimeout, ai.requestTimeout, ai.healthCheckInterval, ai.circuit.openDuration,
+                qdrant.connectTimeout, qdrant.requestTimeout)
+                .allMatch(value -> value != null && !value.isNegative() && !value.isZero());
+    }
+
     @Getter
     @Setter
     public static class Rabbit {
@@ -93,7 +102,7 @@ public class IndexingProperties {
         @NotBlank
         private String baseUrl = "http://localhost:8000";
         @Min(1)
-        private int batchSize;
+        private int batchSize = 3;
         @NotNull
         private Duration connectTimeout = Duration.ofSeconds(3);
         @NotNull

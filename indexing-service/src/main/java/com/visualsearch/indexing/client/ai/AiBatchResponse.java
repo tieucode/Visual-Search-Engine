@@ -6,7 +6,7 @@ import java.util.UUID;
 public record AiBatchResponse(List<Result> results) {
 
     public AiBatchResponse {
-        results = results == null ? List.of() : List.copyOf(results);
+        results = results == null ? List.of() : results.stream().filter(java.util.Objects::nonNull).toList();
     }
 
     public record Result(
@@ -21,7 +21,7 @@ public record AiBatchResponse(List<Result> results) {
         }
 
         public List<OcrItem> safeOcr() {
-            return ocr == null ? List.of() : ocr;
+            return ocr == null ? List.of() : ocr.stream().filter(java.util.Objects::nonNull).toList();
         }
 
         public boolean successful() {

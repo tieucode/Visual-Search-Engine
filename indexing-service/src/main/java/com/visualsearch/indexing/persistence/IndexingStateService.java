@@ -25,9 +25,10 @@ public class IndexingStateService {
     private final BatchIndexRepository batchIndexRepository;
 
     @Transactional(readOnly = true)
-    public Map<UUID, ImageIndexEntity> findByImageIds(Collection<UUID> imageIds) {
+    public Map<UUID, ImageState> findByImageIds(Collection<UUID> imageIds) {
         return imageIndexRepository.findByImageIdIn(imageIds).stream()
-                .collect(Collectors.toMap(ImageIndexEntity::getImageId, Function.identity()));
+                .map(row -> new ImageState(row.getImageId(), row.getBatchId(), row.getStatus()))
+                .collect(Collectors.toMap(ImageState::imageId, Function.identity()));
     }
 
     @Transactional

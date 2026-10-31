@@ -29,15 +29,8 @@ public class QdrantIndexClient {
 
     public QdrantIndexClient(IndexingProperties indexingProperties) {
         this.properties = indexingProperties.getQdrant();
-        HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(properties.getConnectTimeout())
-                .build();
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(properties.getRequestTimeout());
-        this.restClient = RestClient.builder()
-                .baseUrl(properties.getBaseUrl())
-                .requestFactory(requestFactory)
-                .build();
+        this.restClient = com.visualsearch.indexing.config.DependencyHttpClients.create(
+                properties.getBaseUrl(), properties.getConnectTimeout(), properties.getRequestTimeout());
     }
 
     @EventListener(ApplicationReadyEvent.class)

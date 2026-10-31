@@ -30,16 +30,8 @@ public class AiServiceClient {
 
     public AiServiceClient(IndexingProperties properties, AiCircuitBreaker aiCircuitBreaker) {
         IndexingProperties.Ai ai = properties.getAi();
-        HttpClient httpClient = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(ai.getConnectTimeout())
-                .build();
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(ai.getRequestTimeout());
-        this.restClient = RestClient.builder()
-                .baseUrl(ai.getBaseUrl())
-                .requestFactory(requestFactory)
-                .build();
+        this.restClient = com.visualsearch.indexing.config.DependencyHttpClients.create(
+                ai.getBaseUrl(), ai.getConnectTimeout(), ai.getRequestTimeout());
         this.circuitBreaker = aiCircuitBreaker;
         this.healthPath = ai.getHealthPath();
     }
@@ -58,11 +50,7 @@ public class AiServiceClient {
         }
 
         long started = System.nanoTime();
-        try {
-            onCallAccepted.run();
-        } catch (RuntimeException exception) {
-            throw exception;
-        }
+        onCallAccepted.run();
 
         try {
             AiBatchResponse response = executeIndexRequest(images);
