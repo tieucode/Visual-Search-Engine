@@ -15,7 +15,7 @@ import com.visualsearch.indexing.image.BoundedHttpImageSource;
 import com.visualsearch.indexing.image.DownloadedImage;
 import com.visualsearch.indexing.image.ImagePreprocessor;
 import com.visualsearch.indexing.image.PreparedImage;
-import com.visualsearch.indexing.persistence.ImageIndexEntity;
+import com.visualsearch.indexing.persistence.ImageState;
 import com.visualsearch.indexing.persistence.IndexStatus;
 import com.visualsearch.indexing.persistence.IndexingStateService;
 import lombok.RequiredArgsConstructor;
@@ -38,16 +38,18 @@ import java.util.stream.Collectors;
 public class IndexingProcessor {
 
     private final IndexingProperties properties;
+    private final IndexingMessageValidator validator;
+    private final ImagePreparation preparation;
+    private final AiResultMapper resultMapper;
+    private final RetryPolicy retryPolicy;
     private final IndexingStateService stateService;
-    private final BoundedHttpImageSource imageSource;
-    private final ImagePreprocessor imagePreprocessor;
     private final AiServiceClient aiServiceClient;
     private final QdrantIndexClient qdrantIndexClient;
 
     public ProcessingResult process(ImageIndexingMessage message, int currentAttempt) {
         long started = System.nanoTime();
-        List<ImageIndexingMessage.ImageItem> uniqueItems = validate(message, currentAttempt);
-        Map<UUID, ImageIndexEntity> states = stateService.findByImageIds(
+        List<ImageIndexingMessage.ImageItem> uniqueItems = validator.validate(message, currentAttempt);
+        Map<UUID, ImageState> states = stateService.findByImageIds(
                 uniqueItems.stream().map(ImageIndexingMessage.ImageItem::imageId).toList());
 
         List<UUID> missing = uniqueItems.stream()
@@ -59,7 +61,7 @@ public class IndexingProcessor {
         }
 
         List<ImageIndexingMessage.ImageItem> pendingItems = uniqueItems.stream()
-                .filter(item -> states.get(item.imageId()).getStatus() == IndexStatus.PENDING)
+                .filter(item -> states.get(item.imageId()).status() == IndexStatus.PENDING)
                 .toList();
         int skipped = uniqueItems.size() - pendingItems.size();
         if (pendingItems.isEmpty()) {
@@ -78,14 +80,13 @@ public class IndexingProcessor {
 
         List<PreparedWork> prepared = new ArrayList<>();
         for (ImageIndexingMessage.ImageItem item : pendingItems) {
-            ImageIndexEntity state = states.get(item.imageId());
+            ImageState state = states.get(item.imageId());
             try {
-                DownloadedImage downloaded = imageSource.download(item.imageUrl());
-                PreparedImage image = imagePreprocessor.preprocess(item.imageId(), downloaded);
+                PreparedImage image = preparation.prepare(item);
                 prepared.add(new PreparedWork(item, state, image));
             } catch (PermanentImageException exception) {
                 if (stateService.recordPermanentImageFailure(
-                        item.imageId(), state.getBatchId(), exception.getMessage())) {
+                        item.imageId(), state.batchId(), exception.getMessage())) {
                     counters.failed++;
                 } else {
                     counters.skipped++;
@@ -131,38 +132,12 @@ public class IndexingProcessor {
                         work.item(), work.state(), currentAttempt, exception.getMessage(),
                         currentAttempt > 0, retries, counters);
             } else if (stateService.recordPermanentFailure(
-                    work.item().imageId(), work.state().getBatchId(), currentAttempt, exception.getMessage())) {
+                    work.item().imageId(), work.state().batchId(), currentAttempt, exception.getMessage())) {
                 counters.failed++;
             } else {
                 counters.skipped++;
             }
         }
-    }
-
-    private List<ImageIndexingMessage.ImageItem> validate(ImageIndexingMessage message, int currentAttempt) {
-        if (message == null || message.images() == null || message.images().isEmpty()) {
-            throw new InvalidIndexingMessageException("Indexing message must contain at least one image");
-        }
-        if (message.images().size() > properties.getImage().getMaxBatchImages()) {
-            throw new InvalidIndexingMessageException(
-                    "Indexing message exceeds max batch size " + properties.getImage().getMaxBatchImages());
-        }
-        if (currentAttempt < 0 || currentAttempt > properties.getMaxRetries()) {
-            throw new InvalidIndexingMessageException("Invalid retry attempt " + currentAttempt);
-        }
-
-        Map<UUID, ImageIndexingMessage.ImageItem> unique = new LinkedHashMap<>();
-        for (ImageIndexingMessage.ImageItem item : message.images()) {
-            if (item == null || item.imageId() == null || item.imageUrl() == null || item.imageUrl().isBlank()) {
-                throw new InvalidIndexingMessageException("Every message item requires imageId and imageUrl");
-            }
-            ImageIndexingMessage.ImageItem previous = unique.putIfAbsent(item.imageId(), item);
-            if (previous != null && !previous.imageUrl().equals(item.imageUrl())) {
-                throw new InvalidIndexingMessageException(
-                        "Duplicate imageId has conflicting imageUrl: " + item.imageId());
-            }
-        }
-        return List.copyOf(unique.values());
     }
 
     private void markBatchRetryStarted(List<PreparedWork> prepared, int currentAttempt) {
@@ -180,17 +155,8 @@ public class IndexingProcessor {
             int currentAttempt,
             Map<Integer, List<ImageIndexingMessage.ImageItem>> retries,
             Counters counters) {
-        Map<UUID, List<AiBatchResponse.Result>> grouped = response.results().stream()
-                .filter(result -> result.imageId() != null)
-                .collect(Collectors.groupingBy(AiBatchResponse.Result::imageId));
-        Set<UUID> requestedIds = prepared.stream()
-                .map(work -> work.item().imageId())
-                .collect(Collectors.toSet());
-        Set<UUID> unknownIds = new HashSet<>(grouped.keySet());
-        unknownIds.removeAll(requestedIds);
-        if (!unknownIds.isEmpty()) {
-            log.warn("AI response contained unknown imageIds={}", unknownIds);
-        }
+        Map<UUID, List<AiBatchResponse.Result>> grouped = resultMapper.group(response,
+                prepared.stream().map(work -> work.item().imageId()).collect(Collectors.toSet()));
 
         for (PreparedWork work : prepared) {
             List<AiBatchResponse.Result> matches = grouped.getOrDefault(work.item().imageId(), List.of());
@@ -217,13 +183,13 @@ public class IndexingProcessor {
             try {
                 qdrantIndexClient.upsert(
                         work.item().imageId(),
-                        work.state().getBatchId(),
+                        work.state().batchId(),
                         result.safeEmbedding());
-                List<OcrData> ocrItems = result.safeOcr().stream().map(this::toOcrData).toList();
-                if (stateService.recordSuccess(work.item().imageId(), work.state().getBatchId(), ocrItems)) {
+                List<OcrData> ocrItems = result.safeOcr().stream().map(resultMapper::toOcrData).toList();
+                if (stateService.recordSuccess(work.item().imageId(), work.state().batchId(), ocrItems)) {
                     counters.succeeded++;
                     log.info("Image indexing succeeded imageId={} batchId={} retryCount={}",
-                            work.item().imageId(), work.state().getBatchId(), currentAttempt);
+                            work.item().imageId(), work.state().batchId(), currentAttempt);
                 } else {
                     counters.skipped++;
                 }
@@ -238,7 +204,7 @@ public class IndexingProcessor {
                             retries,
                             counters);
                 } else if (stateService.recordPermanentFailure(
-                        work.item().imageId(), work.state().getBatchId(), currentAttempt, exception.getMessage())) {
+                        work.item().imageId(), work.state().batchId(), currentAttempt, exception.getMessage())) {
                     counters.failed++;
                 } else {
                     counters.skipped++;
@@ -261,31 +227,16 @@ public class IndexingProcessor {
             handleTransient(
                     work.item(), work.state(), currentAttempt, message, currentAttempt > 0, retries, counters);
         } else if (stateService.recordPermanentFailure(
-                work.item().imageId(), work.state().getBatchId(), currentAttempt, message)) {
+                work.item().imageId(), work.state().batchId(), currentAttempt, message)) {
             counters.failed++;
         } else {
             counters.skipped++;
         }
     }
 
-    private OcrData toOcrData(AiBatchResponse.OcrItem item) {
-        AiBatchResponse.BoundingBox box = item.boundingBox();
-        OcrData.BoundingBox boundingBox = box == null ? null : new OcrData.BoundingBox(
-                safeFloat(box.x()), safeFloat(box.y()), safeFloat(box.width()), safeFloat(box.height()));
-        return new OcrData(
-                item.text(),
-                item.normalizedText(),
-                safeFloat(item.confidence()),
-                boundingBox);
-    }
-
-    private float safeFloat(Float value) {
-        return value == null ? 0.0f : value;
-    }
-
     private void handleTransient(
             ImageIndexingMessage.ImageItem item,
-            ImageIndexEntity state,
+            ImageState state,
             int currentAttempt,
             String errorMessage,
             boolean attemptAlreadyRecorded,
@@ -298,9 +249,9 @@ public class IndexingProcessor {
             }
         }
 
-        if (currentAttempt >= properties.getMaxRetries()) {
+        if (retryPolicy.exhausted(currentAttempt)) {
             if (stateService.recordRetriesExhausted(
-                    item.imageId(), state.getBatchId(), currentAttempt, errorMessage)) {
+                    item.imageId(), state.batchId(), currentAttempt, errorMessage)) {
                 counters.failed++;
             } else {
                 counters.skipped++;
@@ -340,7 +291,7 @@ public class IndexingProcessor {
 
     private record PreparedWork(
             ImageIndexingMessage.ImageItem item,
-            ImageIndexEntity state,
+            ImageState state,
             PreparedImage image) {
     }
 

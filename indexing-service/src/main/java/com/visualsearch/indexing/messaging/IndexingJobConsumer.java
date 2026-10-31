@@ -35,6 +35,9 @@ public class IndexingJobConsumer {
         try {
             message = objectMapper.readValue(
                     rawMessage.getBody(), ImageIndexingMessage.class);
+            if (message == null) {
+                throw new InvalidIndexingMessageException("Indexing message must not be null");
+            }
             currentAttempt = retryAttempt(rawMessage);
             log.info("Received indexing message imageCount={} retryAttempt={} redelivered={}",
                     message.images().size(),
@@ -85,9 +88,6 @@ public class IndexingJobConsumer {
                 .get(IndexingMessagePublisher.RETRY_ATTEMPT_HEADER);
         if (value == null) {
             return 0;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
         }
         try {
             return Integer.parseInt(value.toString());
