@@ -2,13 +2,19 @@ package com.visualsearch.indexing.processing;
 
 import com.visualsearch.indexing.image.PreparedImage;
 import com.visualsearch.indexing.messaging.ImageIndexingMessage.ImageItem;
-import java.util.*;
-import java.util.concurrent.*;
+
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 /** Holds at most one batch of preparation futures ahead of the consumer. */
 public final class PreparationPipeline implements AutoCloseable {
     public record Outcome(ImageItem item, PreparedImage image, RuntimeException failure) {}
+
     private final List<ImageItem> items;
     private final int batchSize;
     private final ThreadPoolTaskExecutor executor;
@@ -17,26 +23,47 @@ public final class PreparationPipeline implements AutoCloseable {
     private int consumed;
     private int submitted;
 
-    public PreparationPipeline(List<ImageItem> items, int batchSize,
-            ThreadPoolTaskExecutor executor, ImagePreparation preparation) {
+    public PreparationPipeline(
+            List<ImageItem> items,
+            int batchSize,
+            ThreadPoolTaskExecutor executor,
+            ImagePreparation preparation) {
         this.items = items;
         this.batchSize = batchSize;
         this.executor = executor;
         this.preparation = preparation;
-        submitNext();
+        try {
+            submitNext();
+        } catch (RuntimeException failure) {
+            close();
+            throw failure;
+        }
     }
-    public boolean hasNext() { return consumed < items.size(); }
-    public List<ImageItem> remaining() { return items.subList(consumed, items.size()); }
+
+    public boolean hasNext() {
+        return consumed < items.size();
+    }
+
+    public List<ImageItem> remaining() {
+        return items.subList(consumed, items.size());
+    }
+
     private void submitNext() {
         int end = Math.min(submitted + batchSize, items.size());
         while (submitted < end) {
             ImageItem item = items.get(submitted++);
-            futures.add(executor.submit(() -> {
-                try { return new Outcome(item, preparation.prepare(item), null); }
-                catch (RuntimeException failure) { return new Outcome(item, null, failure); }
-            }));
+            futures.add(
+                    executor.submit(
+                            () -> {
+                                try {
+                                    return new Outcome(item, preparation.prepare(item), null);
+                                } catch (RuntimeException failure) {
+                                    return new Outcome(item, null, failure);
+                                }
+                            }));
         }
     }
+
     public List<Outcome> next() {
         List<Outcome> outcomes = new ArrayList<>();
         try {
@@ -52,7 +79,9 @@ public final class PreparationPipeline implements AutoCloseable {
         submitNext();
         return outcomes;
     }
-    @Override public void close() {
+
+    @Override
+    public void close() {
         futures.forEach(future -> future.cancel(true));
         executor.getThreadPoolExecutor().purge();
         futures.clear();

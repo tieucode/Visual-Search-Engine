@@ -17,8 +17,4 @@ public record ProcessingResult(
         retryGroups.forEach((attempt, items) -> copy.put(attempt, List.copyOf(items)));
         retryGroups = Map.copyOf(copy);
     }
-
-    public boolean hasRetries() {
-        return !retryGroups.isEmpty();
-    }
 }

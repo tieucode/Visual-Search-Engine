@@ -1,12 +1,13 @@
 package com.visualsearch.indexing.client.ai;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public record AiBatchResponse(List<Result> results) {
 
     public AiBatchResponse {
-        results = results == null ? List.of() : results.stream().filter(java.util.Objects::nonNull).toList();
+        results = results == null ? List.of() : results.stream().filter(Objects::nonNull).toList();
     }
 
     public record Result(
@@ -21,7 +22,7 @@ public record AiBatchResponse(List<Result> results) {
         }
 
         public List<OcrItem> safeOcr() {
-            return ocr == null ? List.of() : ocr.stream().filter(java.util.Objects::nonNull).toList();
+            return ocr == null ? List.of() : ocr.stream().filter(Objects::nonNull).toList();
         }
 
         public boolean successful() {
@@ -30,14 +31,9 @@ public record AiBatchResponse(List<Result> results) {
     }
 
     public record OcrItem(
-            String text,
-            String normalizedText,
-            Float confidence,
-            BoundingBox boundingBox) {
-    }
+            String text, String normalizedText, Float confidence, BoundingBox boundingBox) {}
 
-    public record BoundingBox(Float x, Float y, Float width, Float height) {
-    }
+    public record BoundingBox(Float x, Float y, Float width, Float height) {}
 
     public record ErrorItem(String code, String message, Boolean retryable) {
         public boolean isRetryable() {
