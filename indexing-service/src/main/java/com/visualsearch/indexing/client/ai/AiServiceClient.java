@@ -123,6 +123,11 @@ public class AiServiceClient {
         }
     }
 
+    /** One HTTP call, without circuit breaker or retry scheduling, for the explicit CLI importer. */
+    public AiBatchResponse indexOnce(List<PreparedImage> images) {
+        return executeIndexRequest(images);
+    }
+
     private AiBatchResponse executeIndexRequest(List<PreparedImage> images) {
         MultiValueMap<String, Object> multipart = new LinkedMultiValueMap<>();
         for (PreparedImage image : images) {

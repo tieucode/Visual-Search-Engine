@@ -41,6 +41,12 @@ class Runtime:
 
     def start(self) -> None:
         configure_cpu(self.settings)
+        if self.settings.device == "cuda":
+            import torch
+
+            if not torch.cuda.is_available():
+                raise RuntimeError("DEVICE=cuda requires a CUDA-enabled PyTorch build and an accessible NVIDIA GPU")
+            logger.info("CUDA device=%s runtime=%s", torch.cuda.get_device_name(0), torch.version.cuda)
         from app.services.embedding_service import EmbeddingService
         from app.services.ocr_service import OCRService
 

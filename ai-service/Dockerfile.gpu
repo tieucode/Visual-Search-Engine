@@ -1,0 +1,11 @@
+# Reuse the application's existing CPU image and model dependencies.
+# Build the CPU image with Dockerfile first if it is not available locally.
+ARG CPU_IMAGE=visual-search-engine-ai-service:latest
+FROM ${CPU_IMAGE}
+
+RUN pip install --no-cache-dir --upgrade \
+    torch==2.7.1 torchvision==0.22.1 \
+    --index-url https://download.pytorch.org/whl/cu126
+
+COPY app ./app
+ENV DEVICE=cuda

@@ -50,6 +50,15 @@ public class QdrantIndexClient {
     public record Point(UUID imageId, UUID batchId, List<Float> embedding) {}
 
     public Map<UUID, QdrantOperationException> upsertBatch(List<Point> points) {
+        return upsertBatch(points, true);
+    }
+
+    /** One upsert request, without per-point fallback, for the explicit CLI importer. */
+    public Map<UUID, QdrantOperationException> upsertOnce(List<Point> points) {
+        return upsertBatch(points, false);
+    }
+
+    private Map<UUID, QdrantOperationException> upsertBatch(List<Point> points, boolean fallback) {
         Map<UUID, QdrantOperationException> failures = new LinkedHashMap<>();
         List<Point> valid = new ArrayList<>();
         for (Point point : points) {
@@ -67,7 +76,7 @@ public class QdrantIndexClient {
         try {
             sendPoints(valid);
         } catch (QdrantOperationException failure) {
-            if (failure.isRetryable() || valid.size() == 1) {
+            if (!fallback || failure.isRetryable() || valid.size() == 1) {
                 valid.forEach(point -> failures.put(point.imageId(), failure));
             } else {
                 for (Point point : valid) {

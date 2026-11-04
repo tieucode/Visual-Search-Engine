@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Vietnamese + English
     ocr_languages: str = "vi,en"
 
-    device: Literal["cpu"] = "cpu"
+    device: Literal["cpu", "cuda"] = "cpu"
 
     model_cache_dir: str = str(Path.home() / ".cache")
     torch_num_threads: int = Field(default=0, ge=0)
