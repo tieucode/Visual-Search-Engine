@@ -37,11 +37,18 @@ function useWorkspace() {
   const loadText = (nextMode: 'text' | 'ocr', text: string) => {
     setMode(nextMode);
     setSubmittedQuery(text);
-    if (nextMode === 'text') {
-      void feed.start(signal => searchByText(text, signal), nextSearchPage);
-    } else {
-      void feed.start(signal => searchByOcr(text, signal), nextOcrPage);
+    if (nextMode === 'ocr') {
+      void feed.start(
+        signal => searchByOcr(text, signal),
+        nextOcrPage,
+      );
+      return;
     }
+
+    void feed.start(
+      signal => searchByText(text, signal),
+      nextSearchPage,
+    );
   };
   // Keep results alive across detail navigation. Defer initial work for StrictMode replay.
   useEffect(() => {

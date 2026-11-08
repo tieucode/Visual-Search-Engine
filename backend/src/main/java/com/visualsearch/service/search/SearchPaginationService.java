@@ -64,6 +64,36 @@ public class SearchPaginationService {
         }
     }
 
+    public String encodeOcrCursor(UUID searchId, double score, UUID imageId, int size) {
+        if (searchId == null || imageId == null || !Double.isFinite(score)
+                || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Invalid OCR search cursor position");
+        }
+        String payload = ENCODER.encodeToString(("ocr-v1:" + searchId + ":" + Double.toHexString(score)
+                + ":" + imageId + ":" + size).getBytes(StandardCharsets.UTF_8));
+        return payload + "." + ENCODER.encodeToString(sign(payload));
+    }
+
+    public OcrCursor decodeOcrCursor(String token, UUID searchId) {
+        try {
+            if (token == null || token.length() > 512) throw new IllegalArgumentException();
+            String[] parts = token.split("\\.", -1);
+            if (parts.length != 2 || !MessageDigest.isEqual(sign(parts[0]), DECODER.decode(parts[1])))
+                throw new IllegalArgumentException();
+            String[] fields = new String(DECODER.decode(parts[0]), StandardCharsets.UTF_8).split(":", -1);
+            if (fields.length != 5 || !"ocr-v1".equals(fields[0]) || !searchId.toString().equals(fields[1]))
+                throw new IllegalArgumentException();
+            double score = Double.valueOf(fields[2]);
+            UUID imageId = UUID.fromString(fields[3]);
+            int size = Integer.parseInt(fields[4]);
+            if (!Double.isFinite(score) || size < 1 || size > MAX_PAGE_SIZE)
+                throw new IllegalArgumentException();
+            return new OcrCursor(score, imageId, size);
+        } catch (IllegalArgumentException exception) {
+            throw new BadRequestException("Invalid search cursor");
+        }
+    }
+
     public void validatePageSize(int size) {
         if (size < 1 || size > MAX_PAGE_SIZE) {
             throw new BadRequestException("size must be between 1 and " + MAX_PAGE_SIZE);
@@ -88,4 +118,5 @@ public class SearchPaginationService {
     }
 
     public record Cursor(long offset, int size) {}
+    public record OcrCursor(double score, UUID imageId, int size) {}
 }

@@ -53,6 +53,7 @@ indexing:
     publisher-confirm-timeout: ${RABBITMQ_PUBLISHER_CONFIRM_TIMEOUT:5s}
     shutdown-timeout: ${INDEXING_SHUTDOWN_TIMEOUT:60s}
   image:
+    preparation-concurrency: ${INDEXING_IMAGE_PREPARATION_CONCURRENCY:2}
     max-bytes: ${INDEXING_MAX_IMAGE_BYTES:20971520}
     max-pixels: ${INDEXING_MAX_IMAGE_PIXELS:40000000}
     max-dimension: ${INDEXING_MAX_IMAGE_DIMENSION:1024}
@@ -76,3 +77,10 @@ indexing:
     vector-size: ${QDRANT_VECTOR_SIZE:768}
     connect-timeout: ${QDRANT_CONNECT_TIMEOUT:3s}
     request-timeout: ${QDRANT_REQUEST_TIMEOUT:10s}
+  elasticsearch:
+    base-url: ${ELASTICSEARCH_URL:http://localhost:9200}
+    ocr-index: ${ELASTICSEARCH_OCR_INDEX:image-ocr-v1}
+    connect-timeout: ${ELASTICSEARCH_CONNECT_TIMEOUT:3s}
+    request-timeout: ${ELASTICSEARCH_REQUEST_TIMEOUT:10s}
+    ocr-poll-interval: ${ELASTICSEARCH_OCR_POLL_INTERVAL_MS:5000}
+    ocr-batch-size: ${ELASTICSEARCH_OCR_BATCH_SIZE:100}

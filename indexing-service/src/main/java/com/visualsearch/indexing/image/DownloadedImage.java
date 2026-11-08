@@ -1,4 +1,3 @@
 package com.visualsearch.indexing.image;
 
-public record DownloadedImage(byte[] bytes, String contentType) {
-}
+public record DownloadedImage(byte[] bytes) {}
