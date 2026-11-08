@@ -55,7 +55,7 @@ export async function searchByOcr(
   const response = await request<SearchPageData>({
     method: 'GET', url: '/search/ocr', params: { q: keyword, size: 20 }, signal, timeout: 90_000,
   });
-  return response.data;
+  return parseSearchPage(response.data);
 }
 
 export async function nextOcrPage(page: SearchPageData, signal: AbortSignal): Promise<SearchPageData> {
@@ -63,5 +63,5 @@ export async function nextOcrPage(page: SearchPageData, signal: AbortSignal): Pr
     method: 'GET', url: `/search/ocr/${encodeURIComponent(page.searchId)}/results`,
     params: { cursor: page.nextCursor }, signal, timeout: 90_000,
   });
-  return response.data;
+  return parseSearchPage(response.data);
 }

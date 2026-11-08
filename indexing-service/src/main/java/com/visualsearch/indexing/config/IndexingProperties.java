@@ -35,9 +35,12 @@ public class IndexingProperties {
 
     @Valid @NotNull private Qdrant qdrant = new Qdrant();
 
+    @Valid @NotNull private Elasticsearch elasticsearch = new Elasticsearch();
+
     @AssertTrue(message = "Timeouts and intervals must be positive")
     public boolean isDurationsValid() {
-        if (rabbit == null || image == null || ai == null || ai.circuit == null || qdrant == null)
+        if (rabbit == null || image == null || ai == null || ai.circuit == null || qdrant == null
+                || elasticsearch == null)
             return false;
         return Stream.of(
                         rabbit.retryDelay,
@@ -50,7 +53,10 @@ public class IndexingProperties {
                         ai.healthCheckInterval,
                         ai.circuit.openDuration,
                         qdrant.connectTimeout,
-                        qdrant.requestTimeout)
+                        qdrant.requestTimeout,
+                        elasticsearch.connectTimeout,
+                        elasticsearch.requestTimeout,
+                        elasticsearch.ocrPollInterval)
                 .allMatch(value -> value != null && !value.isNegative() && !value.isZero());
     }
 
@@ -132,5 +138,16 @@ public class IndexingProperties {
 
         @NotNull private Duration connectTimeout = Duration.ofSeconds(3);
         @NotNull private Duration requestTimeout = Duration.ofSeconds(10);
+    }
+
+    @Getter
+    @Setter
+    public static class Elasticsearch {
+        @NotBlank private String baseUrl = "http://localhost:9200";
+        @NotBlank private String ocrIndex = "image-ocr-v1";
+        @NotNull private Duration connectTimeout = Duration.ofSeconds(3);
+        @NotNull private Duration requestTimeout = Duration.ofSeconds(10);
+        @NotNull private Duration ocrPollInterval = Duration.ofSeconds(5);
+        @Min(1) @Max(1000) private int ocrBatchSize = 100;
     }
 }

@@ -47,6 +47,11 @@ app:
       vector-size: ${QDRANT_VECTOR_SIZE:768}
       connect-timeout: ${QDRANT_CONNECT_TIMEOUT:3s}
       request-timeout: ${QDRANT_REQUEST_TIMEOUT:10s}
+    elasticsearch:
+      base-url: ${ELASTICSEARCH_URL:http://localhost:9200}
+      ocr-index: ${ELASTICSEARCH_OCR_INDEX:image-ocr-v1}
+      connect-timeout: ${ELASTICSEARCH_CONNECT_TIMEOUT:3s}
+      request-timeout: ${ELASTICSEARCH_REQUEST_TIMEOUT:10s}
   indexing:
     max-message-images: ${INDEXING_MAX_BATCH_IMAGES:20}
   # RabbitMQ Queue & Exchange names

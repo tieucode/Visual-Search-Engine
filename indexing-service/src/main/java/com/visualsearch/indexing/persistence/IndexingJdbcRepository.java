@@ -171,6 +171,14 @@ public class IndexingJdbcRepository {
             }
         }
         if (!rows.isEmpty()) insertOcr(rows);
+        for (UUID imageId : successes) {
+            jdbc.update("""
+                    insert into ocr_search_outbox(image_id, status, retry_count, next_attempt_at, updated_at)
+                    values (:id, 'PENDING', 0, :now, :now)
+                    on conflict (image_id) do update set status = 'PENDING', retry_count = 0,
+                        last_error = null, next_attempt_at = excluded.next_attempt_at, updated_at = excluded.updated_at
+                    """, Map.of("id", imageId, "now", Timestamp.from(now)));
+        }
     }
 
     private void insertOcr(List<MapSqlParameterSource> rows) {
