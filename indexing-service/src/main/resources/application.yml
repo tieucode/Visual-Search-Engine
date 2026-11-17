@@ -39,10 +39,15 @@ spring:
 
 indexing:
   max-retries: ${INDEXING_MAX_RETRIES:3}
+  job-outbox:
+    poll-interval: ${INDEXING_JOB_OUTBOX_POLL_INTERVAL:5s}
+    claim-timeout: ${INDEXING_JOB_OUTBOX_CLAIM_TIMEOUT:15m}
   rabbit:
     exchange: ${RABBITMQ_EXCHANGE:visual.search.exchange}
     queue: ${RABBITMQ_QUEUE_IMAGE_UPLOADED:image.uploaded.queue}
     routing-key: ${RABBITMQ_ROUTING_KEY_UPLOADED:image.uploaded}
+    ocr-search-queue: ${RABBITMQ_OCR_SEARCH_QUEUE:ocr.search.index.queue}
+    ocr-claim-timeout: ${OCR_SEARCH_CLAIM_TIMEOUT:15m}
     retry-exchange: ${RABBITMQ_RETRY_EXCHANGE:visual.search.retry.exchange}
     retry-queue: ${RABBITMQ_RETRY_QUEUE:image.uploaded.retry.15m.queue}
     retry-routing-key: ${RABBITMQ_RETRY_ROUTING_KEY:image.uploaded.retry}

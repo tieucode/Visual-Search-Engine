@@ -37,6 +37,11 @@ public class RabbitMqConfiguration {
     }
 
     @Bean
+    Queue ocrSearchQueue(IndexingProperties properties) {
+        return QueueBuilder.durable(properties.getRabbit().getOcrSearchQueue()).build();
+    }
+
+    @Bean
     DirectExchange retryExchange(IndexingProperties properties) {
         return new DirectExchange(properties.getRabbit().getRetryExchange(), true, false);
     }
@@ -116,6 +121,15 @@ public class RabbitMqConfiguration {
         factory.setContainerCustomizer(
                 container -> container.setShutdownTimeout(properties.getRabbit().getShutdownTimeout().toMillis()));
         factory.setDefaultRequeueRejected(false);
+        return factory;
+    }
+
+    @Bean
+    SimpleRabbitListenerContainerFactory ocrSearchListenerContainerFactory(ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setAcknowledgeMode(org.springframework.amqp.core.AcknowledgeMode.MANUAL);
+        factory.setPrefetchCount(1);
         return factory;
     }
 }

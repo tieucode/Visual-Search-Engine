@@ -3,12 +3,10 @@ package com.visualsearch.service;
 import com.visualsearch.dto.upload.ImageUploadRequest;
 import com.visualsearch.dto.upload.ImageUploadData;
 import com.visualsearch.entity.BatchIndex;
-import com.visualsearch.entity.Image;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.BatchStatus;
 import com.visualsearch.enums.ImageFormat;
 import com.visualsearch.enums.IndexStatus;
-import com.visualsearch.event.ImageIndexingMessage;
 import com.visualsearch.exception.BadRequestException;
 import com.visualsearch.repository.ImageIndexRepository;
 import jakarta.annotation.PostConstruct;
@@ -39,7 +37,6 @@ public class ImageUploadService {
     private final MinioStorageService minioStorageService;
     private final BatchService batchService;
     private final IndexingJobPersistenceService indexingJobPersistenceService;
-    private final IndexingMessagePublisher indexingMessagePublisher;
     private final ImageIndexRepository imageIndexRepository;
 
     @Qualifier("uploadExecutor")
@@ -51,16 +48,10 @@ public class ImageUploadService {
     @Value("${app.upload.max-image-pixels:40000000}")
     private long maxImagePixels;
 
-    @Value("${app.indexing.max-message-images}")
-    private int maxIndexingMessageImages;
-
     @PostConstruct
     public void registerImageReaders() {
         if (maxImagePixels < 1 || maxFileSizeMb < 1) {
             throw new IllegalStateException("Upload size and pixel limits must be positive");
-        }
-        if (maxIndexingMessageImages < 1) {
-            throw new IllegalStateException("Indexing message size must be at least 1");
         }
         ImageIO.scanForPlugins();
     }
@@ -98,14 +89,14 @@ public class ImageUploadService {
                 .toList();
 
         // 3. Đợi toàn bộ các ảnh trong chunk hoàn thành
-        List<ImageIndexingMessage.ImageItem> successItems = new ArrayList<>();
+        int uploadedCount = 0;
         List<String> errors = new ArrayList<>();
 
         for (CompletableFuture<SingleImageResult> future : futures) {
             try {
                 SingleImageResult result = future.join();
                 if (result.isSuccess()) {
-                    successItems.add(result.getItem());
+                    uploadedCount++;
                 } else {
                     errors.add(result.getErrorMessage());
                 }
@@ -113,16 +104,6 @@ public class ImageUploadService {
                 log.error("Error retrieving upload result", e);
                 errors.add("Internal processing error");
             }
-        }
-
-        // Match the worker's configured maximum message size.
-        if (!successItems.isEmpty()) {
-            for (int start = 0; start < successItems.size(); start += maxIndexingMessageImages) {
-                List<ImageIndexingMessage.ImageItem> items = List.copyOf(successItems.subList(
-                        start, Math.min(start + maxIndexingMessageImages, successItems.size())));
-                indexingMessagePublisher.publish(new ImageIndexingMessage(items));
-            }
-            log.info("Dispatched indexing messages for batch {} with {} images", batch.getId(), successItems.size());
         }
 
         if (!errors.isEmpty()) {
@@ -140,7 +121,7 @@ public class ImageUploadService {
 
         return ImageUploadData.builder()
                 .batchId(batch.getId())
-                .uploadedCount(successItems.size())
+                .uploadedCount(uploadedCount)
                 .failedCount(errors.size())
                 .batchStatus(updatedBatch.getStatus())
                 .errors(errors)
@@ -200,7 +181,7 @@ public class ImageUploadService {
             String fullImageUrl = minioStorageService.getImageUrl(originalObjectName);
 
             // Lưu Image và trạng thái indexing ban đầu trong cùng transaction.
-            Image image = indexingJobPersistenceService.createImageAndPendingIndex(
+            indexingJobPersistenceService.createImageAndPendingIndex(
                     batchId,
                     userId,
                     originalObjectName,
@@ -208,12 +189,10 @@ public class ImageUploadService {
                     dimensions.width(),
                     dimensions.height(),
                     file.getSize(),
-                    imageFormat);
+                    imageFormat,
+                    fullImageUrl);
             persisted = true;
-
-            ImageIndexingMessage.ImageItem item = new ImageIndexingMessage.ImageItem(image.getId(), fullImageUrl);
-
-            return SingleImageResult.success(item);
+            return SingleImageResult.success();
 
         } catch (Exception e) {
             if (!persisted) {
@@ -317,29 +296,23 @@ public class ImageUploadService {
 
     private static class SingleImageResult {
         private final boolean success;
-        private final ImageIndexingMessage.ImageItem item;
         private final String errorMessage;
 
-        private SingleImageResult(boolean success, ImageIndexingMessage.ImageItem item, String errorMessage) {
+        private SingleImageResult(boolean success, String errorMessage) {
             this.success = success;
-            this.item = item;
             this.errorMessage = errorMessage;
         }
 
-        public static SingleImageResult success(ImageIndexingMessage.ImageItem item) {
-            return new SingleImageResult(true, item, null);
+        public static SingleImageResult success() {
+            return new SingleImageResult(true, null);
         }
 
         public static SingleImageResult failure(String errorMessage) {
-            return new SingleImageResult(false, null, errorMessage);
+            return new SingleImageResult(false, errorMessage);
         }
 
         public boolean isSuccess() {
             return success;
-        }
-
-        public ImageIndexingMessage.ImageItem getItem() {
-            return item;
         }
 
         public String getErrorMessage() {

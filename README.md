@@ -33,15 +33,15 @@ Visual-Search-Engine/
 ├── backend/                         # Java Spring Boot Core
 │   ├── src/main/java/com/visualsearch/
 │   │   ├── client/                  # HTTP Client gọi AI Service
-│   │   ├── config/                  # Security, RabbitMQ, MinIO config
+│   │   ├── config/                  # Security, MinIO and application config
 │   │   ├── controller/              # REST Controllers
 │   │   ├── dto/                     # Data Transfer Objects
-│   │   ├── entity/                  # Database Entities
-│   │   ├── event/                   # RabbitMQ message producers & consumers
+│   │   ├── entity/                  # JPA entities, including indexing job outbox
 │   │   ├── exception/               # Global exception handlers
 │   │   ├── mapper/                  # Entity <-> DTO mappers
-│   │   ├── repository/              # JPA Data Repositories
 │   │   ├── service/                 # Business logic
+│   │   ├── messaging/               # Message outbox data flow
+│   │   ├── repository/              # JPA repositories
 │   │   └── util/                    # Utilities
 │   ├── src/main/resources/          # application.yml
 │   ├── Dockerfile
@@ -83,9 +83,14 @@ docker compose up -d
 ```
 
 Backend là schema owner duy nhất và chạy với `ddl-auto=update`. Indexing Service chỉ
-kiểm tra schema bằng `ddl-auto=validate`. Ở lần triển khai đầu tiên trên database
-trống, hãy khởi động Backend một lần để tạo schema trước khi scale worker. Sau đó
-worker không cần Backend API đang chạy để tiếp tục xử lý message.
+kiểm tra schema bằng `ddl-auto=validate`. Backend ghi job indexing vào
+`indexing_job_outbox` trong cùng transaction với ảnh và trạng thái `image_index`.
+Indexing Service claim các job này rồi publish lên RabbitMQ; vì vậy worker cần cùng
+database với backend. Ở lần triển khai đầu tiên trên database trống, hãy khởi động
+Backend một lần để tạo schema trước khi scale worker.
+
+Backend không cần kết nối RabbitMQ để phát job upload. Nếu RabbitMQ hoặc worker tạm
+thời không sẵn sàng, các job vẫn nằm trong outbox để worker publish lại sau.
 
 Để chạy bốn worker độc lập, mỗi worker xử lý tuần tự một message:
 

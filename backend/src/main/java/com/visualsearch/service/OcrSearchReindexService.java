@@ -32,7 +32,7 @@ public class OcrSearchReindexService {
                     where i.deleted_at is null
                 ), states as (
                     select count(*) filter (where x.status = 'INDEXED') as indexed,
-                           count(*) filter (where x.status = 'PENDING') as pending,
+                           count(*) filter (where x.status in ('PENDING', 'PROCESSING')) as pending,
                            count(*) filter (where x.status = 'PENDING' and x.last_error is not null) as retrying
                     from ocr_search_outbox x join images i on i.id = x.image_id
                     where i.deleted_at is null

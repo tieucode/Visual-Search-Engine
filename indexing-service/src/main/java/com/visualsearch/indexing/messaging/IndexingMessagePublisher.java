@@ -25,6 +25,10 @@ public class IndexingMessagePublisher {
         this.properties = indexingProperties.getRabbit();
     }
 
+    public void publishInitial(List<ImageIndexingMessage.ImageItem> items) {
+        publishConfirmed(properties.getExchange(), properties.getRoutingKey(), new ImageIndexingMessage(items), null);
+    }
+
     public void publishRetry(int attempt, List<ImageIndexingMessage.ImageItem> items) {
         ImageIndexingMessage retryMessage = new ImageIndexingMessage(items);
         publishConfirmed(
@@ -58,7 +62,11 @@ public class IndexingMessagePublisher {
             Object payload,
             org.springframework.amqp.core.MessagePostProcessor postProcessor) {
         CorrelationData correlationData = new CorrelationData(UUID.randomUUID().toString());
-        rabbitTemplate.convertAndSend(exchange, routingKey, payload, postProcessor, correlationData);
+        if (postProcessor == null) {
+            rabbitTemplate.convertAndSend(exchange, routingKey, payload, correlationData);
+        } else {
+            rabbitTemplate.convertAndSend(exchange, routingKey, payload, postProcessor, correlationData);
+        }
         awaitConfirm(correlationData);
     }
 

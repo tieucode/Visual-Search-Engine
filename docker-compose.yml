@@ -130,10 +130,6 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-visual_search_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-guest}
-      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-miniopassword}
@@ -142,11 +138,6 @@ services:
       MINIO_PRESIGNED_URL_EXPIRY_SECONDS: ${MINIO_PRESIGNED_URL_EXPIRY_SECONDS:-604800}
       MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
       MINIO_REGION: ${MINIO_REGION:-us-east-1}
-      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-visual.search.exchange}
-      RABBITMQ_QUEUE_IMAGE_UPLOADED: ${RABBITMQ_QUEUE_IMAGE_UPLOADED:-image.uploaded.queue}
-      RABBITMQ_ROUTING_KEY_UPLOADED: ${RABBITMQ_ROUTING_KEY_UPLOADED:-image.uploaded}
-      RABBITMQ_PUBLISHER_CONFIRM_TIMEOUT_MS: ${RABBITMQ_PUBLISHER_CONFIRM_TIMEOUT_MS:-5000}
-      INDEXING_MAX_BATCH_IMAGES: ${INDEXING_MAX_BATCH_IMAGES:-20}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
@@ -167,8 +158,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
       minio:
         condition: service_started
       elasticsearch:
@@ -188,11 +177,8 @@ services:
     build:
       context: ./indexing-service
       dockerfile: Dockerfile
-    container_name: visual-search-indexing-service
     restart: unless-stopped
     stop_grace_period: 90s
-    ports:
-      - "${INDEXING_SERVICE_PORT:-8081}:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-visual_search_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -212,6 +198,8 @@ services:
       RABBITMQ_DLQ_ROUTING_KEY: ${RABBITMQ_DLQ_ROUTING_KEY:-image.uploaded.dlq}
       RABBITMQ_PUBLISHER_CONFIRM_TIMEOUT: ${RABBITMQ_PUBLISHER_CONFIRM_TIMEOUT:-5s}
       INDEXING_RETRY_DELAY: ${INDEXING_RETRY_DELAY:-15m}
+      INDEXING_JOB_OUTBOX_POLL_INTERVAL: ${INDEXING_JOB_OUTBOX_POLL_INTERVAL:-5s}
+      INDEXING_JOB_OUTBOX_CLAIM_TIMEOUT: ${INDEXING_JOB_OUTBOX_CLAIM_TIMEOUT:-15m}
       INDEXING_MAX_RETRIES: ${INDEXING_MAX_RETRIES:-3}
       INDEXING_MAX_IMAGE_BYTES: ${INDEXING_MAX_IMAGE_BYTES:-20971520}
       INDEXING_MAX_IMAGE_PIXELS: ${INDEXING_MAX_IMAGE_PIXELS:-40000000}

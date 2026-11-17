@@ -51,13 +51,38 @@ public class OcrSearchOutboxRepository {
                 """, Map.of("limit", limit, "now", Timestamp.from(Instant.now())));
     }
 
-    public List<OutboxEntry> findReady(int limit) {
+    public List<OutboxEntry> claimReady(int limit) {
         return jdbc.query("""
-                select image_id, retry_count from ocr_search_outbox
-                where status = 'PENDING' and next_attempt_at <= :now
-                order by next_attempt_at, image_id limit :limit
+                with candidates as (
+                    select image_id from ocr_search_outbox
+                    where status = 'PENDING' and next_attempt_at <= :now
+                    order by next_attempt_at, image_id
+                    limit :limit for update skip locked
+                )
+                update ocr_search_outbox x set status = 'PROCESSING', updated_at = :now
+                from candidates c where x.image_id = c.image_id
+                returning x.image_id, x.retry_count
                 """, Map.of("now", Timestamp.from(Instant.now()), "limit", limit),
                 (rs, row) -> new OutboxEntry(rs.getObject("image_id", UUID.class), rs.getInt("retry_count")));
+    }
+
+    public int releaseStaleClaims(Duration timeout) {
+        Instant now = Instant.now();
+        return jdbc.update("""
+                update ocr_search_outbox set status = 'PENDING', updated_at = :now
+                where status = 'PROCESSING' and updated_at < :cutoff
+                """, Map.of("now", Timestamp.from(now), "cutoff", Timestamp.from(now.minus(timeout))));
+    }
+
+    public void releaseClaim(UUID imageId) {
+        jdbc.update("update ocr_search_outbox set status = 'PENDING', updated_at = :now where image_id = :id and status = 'PROCESSING'",
+                Map.of("id", imageId, "now", Timestamp.from(Instant.now())));
+    }
+
+    public boolean isProcessing(UUID imageId) {
+        Boolean processing = jdbc.queryForObject("select exists(select 1 from ocr_search_outbox where image_id = :id and status = 'PROCESSING')",
+                Map.of("id", imageId), Boolean.class);
+        return Boolean.TRUE.equals(processing);
     }
 
     public List<OcrIndexDocument> loadDocuments(List<UUID> ids) {
@@ -97,9 +122,9 @@ public class OcrSearchOutboxRepository {
     public void markRetry(UUID imageId, String error, Duration delay) {
         jdbc.update("""
                 update ocr_search_outbox
-                set retry_count = retry_count + 1, last_error = :error,
+                set status = 'PENDING', retry_count = retry_count + 1, last_error = :error,
                     next_attempt_at = :nextAttempt, updated_at = :now
-                where image_id = :id and status = 'PENDING'
+                where image_id = :id and status in ('PENDING', 'PROCESSING')
                 """, new MapSqlParameterSource("id", imageId)
                 .addValue("error", error == null ? "Unknown Elasticsearch error" : error.substring(0, Math.min(2000, error.length())))
                 .addValue("nextAttempt", Timestamp.from(Instant.now().plus(delay)))

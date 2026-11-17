@@ -3,6 +3,7 @@ package com.visualsearch.service;
 import com.visualsearch.entity.BatchIndex;
 import com.visualsearch.entity.Image;
 import com.visualsearch.entity.ImageIndex;
+import com.visualsearch.entity.IndexingJobOutbox;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.ImageFormat;
 import com.visualsearch.enums.ImageType;
@@ -10,6 +11,7 @@ import com.visualsearch.enums.IndexStatus;
 import com.visualsearch.repository.BatchIndexRepository;
 import com.visualsearch.repository.ImageIndexRepository;
 import com.visualsearch.repository.ImageRepository;
+import com.visualsearch.repository.IndexingJobOutboxRepository;
 import com.visualsearch.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,11 +25,12 @@ public class IndexingJobPersistenceService {
 
     private final ImageRepository imageRepository;
     private final ImageIndexRepository imageIndexRepository;
+    private final IndexingJobOutboxRepository indexingJobOutboxRepository;
     private final BatchIndexRepository batchIndexRepository;
     private final UserRepository userRepository;
 
     @Transactional
-    public Image createImageAndPendingIndex(
+    public void createImageAndPendingIndex(
             UUID batchId,
             UUID userId,
             String imagePath,
@@ -35,7 +38,8 @@ public class IndexingJobPersistenceService {
             int width,
             int height,
             long fileSize,
-            ImageFormat imageFormat) {
+            ImageFormat imageFormat,
+            String imageUrl) {
         BatchIndex batch = batchIndexRepository.getReferenceById(batchId);
         User user = userRepository.getReferenceById(userId);
 
@@ -58,6 +62,6 @@ public class IndexingJobPersistenceService {
                 .retryCount(0)
                 .build();
         imageIndexRepository.save(imageIndex);
-        return image;
+        indexingJobOutboxRepository.save(new IndexingJobOutbox(image.getId(), imageUrl));
     }
 }

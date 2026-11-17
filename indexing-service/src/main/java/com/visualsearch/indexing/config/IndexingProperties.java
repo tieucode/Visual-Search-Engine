@@ -37,15 +37,20 @@ public class IndexingProperties {
 
     @Valid @NotNull private Elasticsearch elasticsearch = new Elasticsearch();
 
+    @Valid @NotNull private JobOutbox jobOutbox = new JobOutbox();
+
     @AssertTrue(message = "Timeouts and intervals must be positive")
     public boolean isDurationsValid() {
         if (rabbit == null || image == null || ai == null || ai.circuit == null || qdrant == null
-                || elasticsearch == null)
+                || elasticsearch == null || jobOutbox == null)
             return false;
         return Stream.of(
                         rabbit.retryDelay,
                         rabbit.publisherConfirmTimeout,
                         rabbit.shutdownTimeout,
+                        rabbit.ocrClaimTimeout,
+                        jobOutbox.pollInterval,
+                        jobOutbox.claimTimeout,
                         image.connectTimeout,
                         image.requestTimeout,
                         ai.connectTimeout,
@@ -66,6 +71,8 @@ public class IndexingProperties {
         @NotBlank private String exchange = "visual.search.exchange";
         @NotBlank private String queue = "image.uploaded.queue";
         @NotBlank private String routingKey = "image.uploaded";
+        @NotBlank private String ocrSearchQueue = "ocr.search.index.queue";
+        @NotNull private Duration ocrClaimTimeout = Duration.ofMinutes(15);
         @NotBlank private String retryExchange = "visual.search.retry.exchange";
         @NotBlank private String retryQueue = "image.uploaded.retry.15m.queue";
         @NotBlank private String retryRoutingKey = "image.uploaded.retry";
@@ -75,6 +82,13 @@ public class IndexingProperties {
         @NotNull private Duration retryDelay = Duration.ofMinutes(15);
         @NotNull private Duration publisherConfirmTimeout = Duration.ofSeconds(5);
         @NotNull private Duration shutdownTimeout = Duration.ofSeconds(60);
+    }
+
+    @Getter
+    @Setter
+    public static class JobOutbox {
+        @NotNull private Duration pollInterval = Duration.ofSeconds(5);
+        @NotNull private Duration claimTimeout = Duration.ofMinutes(15);
     }
 
     @Getter
