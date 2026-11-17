@@ -25,6 +25,8 @@ public class SearchProperties {
     private Ai ai = new Ai();
     @Valid
     private Qdrant qdrant = new Qdrant();
+    @Valid
+    private Elasticsearch elasticsearch = new Elasticsearch();
 
     @Getter
     @Setter
@@ -44,6 +46,17 @@ public class SearchProperties {
         private String collection = "images";
         @Min(1)
         private int vectorSize = 768;
+        private Duration connectTimeout = Duration.ofSeconds(3);
+        private Duration requestTimeout = Duration.ofSeconds(10);
+    }
+
+    @Getter
+    @Setter
+    public static class Elasticsearch {
+        @NotBlank
+        private String baseUrl = "http://localhost:9200";
+        @NotBlank
+        private String ocrIndex = "image-ocr-v1";
         private Duration connectTimeout = Duration.ofSeconds(3);
         private Duration requestTimeout = Duration.ofSeconds(10);
     }

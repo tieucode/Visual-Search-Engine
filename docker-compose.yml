@@ -33,6 +33,27 @@ services:
     networks:
       - visual-search-net
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: visual-search-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: ${ELASTICSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - visual-search-net
+
   minio:
     image: bitnamilegacy/minio:2025.7.23-debian-12-r5
     container_name: visual-search-minio
@@ -135,6 +156,10 @@ services:
       QDRANT_BASE_URL: ${QDRANT_BASE_URL:-http://qdrant:6333}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-images}
       QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-768}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_OCR_INDEX: ${ELASTICSEARCH_OCR_INDEX:-image-ocr-v1}
+      ELASTICSEARCH_CONNECT_TIMEOUT: ${ELASTICSEARCH_CONNECT_TIMEOUT:-3s}
+      ELASTICSEARCH_REQUEST_TIMEOUT: ${ELASTICSEARCH_REQUEST_TIMEOUT:-10s}
       QDRANT_CONNECT_TIMEOUT: ${QDRANT_CONNECT_TIMEOUT:-3s}
       QDRANT_REQUEST_TIMEOUT: ${QDRANT_REQUEST_TIMEOUT:-10s}
       SEARCH_MAX_IMAGE_BYTES: ${SEARCH_MAX_IMAGE_BYTES:-10485760}
@@ -146,6 +171,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      elasticsearch:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD-SHELL
@@ -207,6 +234,12 @@ services:
       QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-768}
       QDRANT_CONNECT_TIMEOUT: ${QDRANT_CONNECT_TIMEOUT:-3s}
       QDRANT_REQUEST_TIMEOUT: ${QDRANT_REQUEST_TIMEOUT:-10s}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_OCR_INDEX: ${ELASTICSEARCH_OCR_INDEX:-image-ocr-v1}
+      ELASTICSEARCH_CONNECT_TIMEOUT: ${ELASTICSEARCH_CONNECT_TIMEOUT:-3s}
+      ELASTICSEARCH_REQUEST_TIMEOUT: ${ELASTICSEARCH_REQUEST_TIMEOUT:-10s}
+      ELASTICSEARCH_OCR_POLL_INTERVAL_MS: ${ELASTICSEARCH_OCR_POLL_INTERVAL_MS:-5000}
+      ELASTICSEARCH_OCR_BATCH_SIZE: ${ELASTICSEARCH_OCR_BATCH_SIZE:-100}
     depends_on:
       backend:
         condition: service_healthy
@@ -218,6 +251,8 @@ services:
         condition: service_started
       qdrant:
         condition: service_started
+      elasticsearch:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD-SHELL
@@ -260,6 +295,7 @@ networks:
 volumes:
   postgres_data:
   qdrant_data:
+  elasticsearch_data:
   minio_data:
   rabbitmq_data:
   ai_models_cache:

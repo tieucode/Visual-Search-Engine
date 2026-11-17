@@ -10,3 +10,13 @@ venv/
 .gitignore
 .dockerignore
 *.log
+.env
+.env.*
+models/
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+tests/
+benchmarks/
+benchmark-results/

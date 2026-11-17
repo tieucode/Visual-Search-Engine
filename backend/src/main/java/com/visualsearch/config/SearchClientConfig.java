@@ -22,6 +22,13 @@ public class SearchClientConfig {
         return client(builder, qdrant.getBaseUrl(), qdrant.getConnectTimeout(), qdrant.getRequestTimeout());
     }
 
+    @Bean
+    public RestClient elasticsearchSearchRestClient(SearchProperties properties, RestClient.Builder builder) {
+        var elasticsearch = properties.getElasticsearch();
+        return client(builder, elasticsearch.getBaseUrl(), elasticsearch.getConnectTimeout(),
+                elasticsearch.getRequestTimeout());
+    }
+
     private RestClient client(RestClient.Builder builder, String baseUrl, Duration connect, Duration read) {
         // Avoid h2c upgrade: Uvicorn can discard the multipart body when handling an unsupported upgrade.
         var httpClient = HttpClient.newBuilder()

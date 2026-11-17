@@ -19,7 +19,7 @@ export function parseSearchPage(value: unknown): SearchPageData {
   if (typeof value === 'object' && value !== null) {
     const page = value as Partial<SearchPageData>;
     if (typeof page.searchId === 'string' && page.searchId.length > 0 &&
-        (page.searchType === 'IMAGE_ONLY' || page.searchType === 'TEXT_SEMANTIC') &&
+        (page.searchType === 'IMAGE_ONLY' || page.searchType === 'TEXT_SEMANTIC' || page.searchType === 'TEXT_OCR') &&
         typeof page.size === 'number' && Number.isInteger(page.size) && page.size >= 1 && page.size <= 100 &&
         Array.isArray(page.items) && page.items.length <= page.size && page.items.every(isSearchImage) &&
         typeof page.hasMore === 'boolean' &&

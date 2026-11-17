@@ -33,10 +33,10 @@ chỉ bật/tắt hộp tải ảnh dưới header; không đổi chế độ ho
 Ctrl+V ảnh hợp lệ sẽ đóng dialog, chuyển đến `/?mode=image` và POST ngay, không
 cần xác nhận thêm. File không hợp lệ giữ dialog mở và báo lỗi ngắn.
 
-OCR và đề xuất vẫn dùng mock, không thêm nhãn/chú thích vào lưới ảnh.
-Dữ liệu OCR gồm 36 poster, chia thành các trang 12 ảnh với độ trễ giả lập;
-từ khóa thay đổi thứ tự minh họa, chưa thực hiện tìm kiếm OCR.
-Ảnh đề xuất lấy từ Unsplash; poster OCR được dựng tại frontend.
+OCR search gọi backend thật qua Elasticsearch. Kết quả OCR vẫn lưu ở PostgreSQL;
+indexing service đồng bộ document bằng outbox và retry độc lập. Xem
+[search-by-ocr.md](search-by-ocr.md) để biết API, cursor và backfill.
+Ảnh đề xuất vẫn dùng dữ liệu mẫu.
 Nút thả tim chỉ giữ trạng thái trong phiên giao diện, chưa gọi API lưu yêu thích.
 Đề xuất dùng adapter riêng `recommendedDemo` (36 ảnh, 20 ảnh/trang) để thay bằng
 API recommend sau này. Container dùng hết chiều rộng với lề 24 px desktop / 12 px

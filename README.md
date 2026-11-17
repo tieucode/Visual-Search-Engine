@@ -154,6 +154,7 @@ Lần xử lý đầu tiên có giá trị `0`; lỗi ảnh vĩnh viễn luôn k
 | **AI Service** | `http://localhost:8000/docs` | FastAPI Swagger Documentation |
 | **PostgreSQL** | `localhost:5432` | Cơ sở dữ liệu quan hệ |
 | **Qdrant** | `http://localhost:6333/dashboard` | Vector Database Web UI |
+| **Elasticsearch** | `http://localhost:9200` | OCR keyword search index |
 | **MinIO Console** | `http://localhost:9001` | Quản lý Object Storage |
 | **RabbitMQ Management** | `http://localhost:15672` | RabbitMQ Web Management Dashboard (user: `guest`, pass: `guest`) |
 
