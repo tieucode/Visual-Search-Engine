@@ -25,7 +25,7 @@ public class OcrSearchOutboxRepository {
                 with missing as (
                     select distinct o.image_id
                     from image_ocr o
-                    join images i on i.id = o.image_id and i.deleted_at is null
+                    join images i on i.id = o.image_id and i.deleted_at is null and i.type = 'UPLOAD'
                     where not exists (
                         select 1 from ocr_search_outbox x where x.image_id = o.image_id
                     )
@@ -41,13 +41,16 @@ public class OcrSearchOutboxRepository {
     public int enqueueDeleted(int limit) {
         return jdbc.update("""
                 with deleted as (
-                    select x.image_id from ocr_search_outbox x join images i on i.id = x.image_id
-                    where i.deleted_at is not null and x.status = 'INDEXED'
+                    select x.image_id from ocr_search_outbox x
+                    where x.status = 'INDEXED' and not exists (
+                        select 1 from images i join image_ocr o on o.image_id = i.id
+                        where i.id = x.image_id and i.deleted_at is null and i.type = 'UPLOAD'
+                    )
                     order by x.image_id limit :limit
                 )
-                update ocr_search_outbox x set status = 'PENDING', retry_count = 0,
+                update ocr_search_outbox x set revision = revision + 1, status = 'PENDING', retry_count = 0,
                     last_error = null, next_attempt_at = :now, updated_at = :now
-                from deleted d where x.image_id = d.image_id
+                from deleted d where x.image_id = d.image_id and x.status = 'INDEXED'
                 """, Map.of("limit", limit, "now", Timestamp.from(Instant.now())));
     }
 
@@ -59,11 +62,11 @@ public class OcrSearchOutboxRepository {
                     order by next_attempt_at, image_id
                     limit :limit for update skip locked
                 )
-                update ocr_search_outbox x set status = 'PROCESSING', updated_at = :now
+                update ocr_search_outbox x set revision = revision + 1, status = 'PROCESSING', updated_at = :now
                 from candidates c where x.image_id = c.image_id
-                returning x.image_id, x.retry_count
+                returning x.image_id, x.revision
                 """, Map.of("now", Timestamp.from(Instant.now()), "limit", limit),
-                (rs, row) -> new OutboxEntry(rs.getObject("image_id", UUID.class), rs.getInt("retry_count")));
+                (rs, row) -> new OutboxEntry(rs.getObject("image_id", UUID.class), rs.getLong("revision")));
     }
 
     public int releaseStaleClaims(Duration timeout) {
@@ -74,14 +77,14 @@ public class OcrSearchOutboxRepository {
                 """, Map.of("now", Timestamp.from(now), "cutoff", Timestamp.from(now.minus(timeout))));
     }
 
-    public void releaseClaim(UUID imageId) {
-        jdbc.update("update ocr_search_outbox set status = 'PENDING', updated_at = :now where image_id = :id and status = 'PROCESSING'",
-                Map.of("id", imageId, "now", Timestamp.from(Instant.now())));
+    public void releaseClaim(UUID imageId, long revision) {
+        jdbc.update("update ocr_search_outbox set status = 'PENDING', updated_at = :now where image_id = :id and revision = :revision and status = 'PROCESSING'",
+                Map.of("revision", revision, "id", imageId, "now", Timestamp.from(Instant.now())));
     }
 
-    public boolean isProcessing(UUID imageId) {
-        Boolean processing = jdbc.queryForObject("select exists(select 1 from ocr_search_outbox where image_id = :id and status = 'PROCESSING')",
-                Map.of("id", imageId), Boolean.class);
+    public boolean isProcessing(UUID imageId, long revision) {
+        Boolean processing = jdbc.queryForObject("select exists(select 1 from ocr_search_outbox where image_id = :id and revision = :revision and status = 'PROCESSING')",
+                Map.of("revision", revision, "id", imageId), Boolean.class);
         return Boolean.TRUE.equals(processing);
     }
 
@@ -95,8 +98,8 @@ public class OcrSearchOutboxRepository {
                        coalesce(json_agg(o.raw_text order by o.confidence_score desc nulls last)
                            filter (where o.raw_text is not null), '[]'::json)::text as raw_texts,
                        max(o.confidence_score) as confidence_score
-                from images i left join image_ocr o on o.image_id = i.id
-                where i.id in (:ids) and i.deleted_at is null
+                from images i join image_ocr o on o.image_id = i.id
+                where i.id in (:ids) and i.deleted_at is null and i.type = 'UPLOAD'
                 group by i.id, i.path, i.thumbnail_path, i.width, i.height
                 """, Map.of("ids", ids), (rs, row) -> new OcrIndexDocument(
                 rs.getObject("image_id", UUID.class), rs.getString("image_path"), rs.getString("thumbnail_path"),
@@ -105,27 +108,27 @@ public class OcrSearchOutboxRepository {
                 rs.getObject("confidence_score") == null ? null : rs.getDouble("confidence_score")));
     }
 
-    public void markIndexed(UUID imageId) {
+    public void markIndexed(UUID imageId, long revision) {
         jdbc.update("""
                 update ocr_search_outbox set status = 'INDEXED', last_error = null, updated_at = :now
-                where image_id = :id
-                """, Map.of("id", imageId, "now", Timestamp.from(Instant.now())));
+                where image_id = :id and revision = :revision and status = 'PROCESSING'
+                """, Map.of("revision", revision, "id", imageId, "now", Timestamp.from(Instant.now())));
     }
 
-    public void markDeleted(UUID imageId) {
+    public void markDeleted(UUID imageId, long revision) {
         jdbc.update("""
                 update ocr_search_outbox set status = 'DELETED', last_error = null, updated_at = :now
-                where image_id = :id
-                """, Map.of("id", imageId, "now", Timestamp.from(Instant.now())));
+                where image_id = :id and revision = :revision and status = 'PROCESSING'
+                """, Map.of("revision", revision, "id", imageId, "now", Timestamp.from(Instant.now())));
     }
 
-    public void markRetry(UUID imageId, String error, Duration delay) {
+    public void markRetry(UUID imageId, long revision, String error, Duration delay) {
         jdbc.update("""
                 update ocr_search_outbox
                 set status = 'PENDING', retry_count = retry_count + 1, last_error = :error,
                     next_attempt_at = :nextAttempt, updated_at = :now
-                where image_id = :id and status in ('PENDING', 'PROCESSING')
-                """, new MapSqlParameterSource("id", imageId)
+                where image_id = :id and revision = :revision and status = 'PROCESSING'
+                """, new MapSqlParameterSource("id", imageId).addValue("revision", revision)
                 .addValue("error", error == null ? "Unknown Elasticsearch error" : error.substring(0, Math.min(2000, error.length())))
                 .addValue("nextAttempt", Timestamp.from(Instant.now().plus(delay)))
                 .addValue("now", Timestamp.from(Instant.now())));
@@ -139,5 +142,5 @@ public class OcrSearchOutboxRepository {
         }
     }
 
-    public record OutboxEntry(UUID imageId, int retryCount) {}
+    public record OutboxEntry(UUID imageId, long revision) {}
 }

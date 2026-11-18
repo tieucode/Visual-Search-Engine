@@ -8,7 +8,7 @@ import org.hibernate.type.SqlTypes;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "image_ocr")
+@Table(name = "image_ocr", indexes = @Index(name = "idx_image_ocr_image_id", columnList = "image_id"))
 @Getter
 @Setter
 @NoArgsConstructor

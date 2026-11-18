@@ -38,8 +38,7 @@ public class IndexingJobPersistenceService {
             int width,
             int height,
             long fileSize,
-            ImageFormat imageFormat,
-            String imageUrl) {
+            ImageFormat imageFormat) {
         BatchIndex batch = batchIndexRepository.getReferenceById(batchId);
         User user = userRepository.getReferenceById(userId);
 
@@ -62,6 +61,6 @@ public class IndexingJobPersistenceService {
                 .retryCount(0)
                 .build();
         imageIndexRepository.save(imageIndex);
-        indexingJobOutboxRepository.save(new IndexingJobOutbox(image.getId(), imageUrl));
+        indexingJobOutboxRepository.save(new IndexingJobOutbox(image.getId()));
     }
 }

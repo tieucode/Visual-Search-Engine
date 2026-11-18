@@ -9,6 +9,8 @@ import com.visualsearch.exception.SearchDependencyException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.HttpClientErrorException;
+import java.io.IOException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,7 @@ public class ElasticsearchOcrSearchClient {
         body.put("size", limit);
         body.put("track_total_hits", false);
         ObjectNode bool = body.putObject("query").putObject("bool");
+        bool.putArray("must_not").addObject().putObject("term").put("deleted", true);
         ArrayNode must = bool.putArray("must");
         must.addObject().putObject("match").putObject("normalizedTexts")
                 .put("query", query)
@@ -73,6 +76,17 @@ public class ElasticsearchOcrSearchClient {
                         sortImageId));
             }
             return List.copyOf(result);
+        } catch (HttpClientErrorException.NotFound missing) {
+            try {
+                JsonNode response = objectMapper.readTree(missing.getResponseBodyAsByteArray());
+                if (response != null && "index_not_found_exception".equals(response.at("/error/type").asText())
+                        && properties.getElasticsearch().getOcrIndex().equals(response.at("/error/index").asText())) {
+                    return List.of();
+                }
+            } catch (IOException invalidBody) {
+                missing.addSuppressed(invalidBody);
+            }
+            throw new SearchDependencyException("Elasticsearch OCR search failed", missing);
         } catch (SearchDependencyException exception) {
             throw exception;
         } catch (Exception exception) {

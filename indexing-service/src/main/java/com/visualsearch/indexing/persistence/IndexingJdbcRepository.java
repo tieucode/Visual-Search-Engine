@@ -31,14 +31,17 @@ public class IndexingJdbcRepository {
         if (ids.isEmpty()) return Map.of();
         var rows =
                 jdbc.query(
-                        "select image_id, batch_id, status from image_index where image_id in"
-                                + " (:ids)",
+                        """
+                        select ix.image_id, ix.batch_id, ix.status, i.path
+                        from image_index ix join images i on i.id = ix.image_id
+                        where ix.image_id in (:ids)
+                        """,
                         Map.of("ids", ids),
                         (rs, row) ->
                                 new ImageState(
                                         rs.getObject("image_id", UUID.class),
                                         rs.getObject("batch_id", UUID.class),
-                                        IndexStatus.valueOf(rs.getString("status"))));
+                                        IndexStatus.valueOf(rs.getString("status")), rs.getString("path")));
         Map<UUID, ImageState> states = new HashMap<>();
         rows.forEach(state -> states.put(state.imageId(), state));
         return states;
@@ -101,24 +104,25 @@ public class IndexingJdbcRepository {
                                 returning i.image_id, i.batch_id, i.status
                 """
                         .formatted(String.join(",", values));
-        List<ImageState> changed =
+        record ChangedImage(UUID imageId, UUID batchId, IndexStatus status) {}
+        List<ChangedImage> changed =
                 jdbc.query(
                         sql,
                         parameters,
                         (rs, row) ->
-                                new ImageState(
+                                new ChangedImage(
                                         rs.getObject("image_id", UUID.class),
                                         rs.getObject("batch_id", UUID.class),
                                         IndexStatus.valueOf(rs.getString("status"))));
         List<UUID> successes =
                 changed.stream()
                         .filter(row -> row.status() == IndexStatus.SUCCESS)
-                        .map(ImageState::imageId)
+                        .map(ChangedImage::imageId)
                         .toList();
         replaceOcr(successes, writes, now);
         Map<UUID, int[]> counts = new TreeMap<>();
         Map<UUID, IndexStatus> applied = new HashMap<>();
-        for (ImageState row : changed) {
+        for (ChangedImage row : changed) {
             applied.put(row.imageId(), row.status());
             if (row.batchId() != null && row.status() != IndexStatus.PENDING) {
                 counts.computeIfAbsent(row.batchId(), ignored -> new int[2])[
@@ -172,10 +176,17 @@ public class IndexingJdbcRepository {
         }
         if (!rows.isEmpty()) insertOcr(rows);
         for (UUID imageId : successes) {
+            if (writes.get(imageId).ocr().isEmpty()) {
+                jdbc.update("""
+                        update ocr_search_outbox set revision = revision + 1, status = 'PENDING', retry_count = 0,
+                            last_error = null, next_attempt_at = :now, updated_at = :now where image_id = :id
+                        """, Map.of("id", imageId, "now", Timestamp.from(now)));
+                continue;
+            }
             jdbc.update("""
                     insert into ocr_search_outbox(image_id, status, retry_count, next_attempt_at, updated_at)
                     values (:id, 'PENDING', 0, :now, :now)
-                    on conflict (image_id) do update set status = 'PENDING', retry_count = 0,
+                    on conflict (image_id) do update set revision = ocr_search_outbox.revision + 1, status = 'PENDING', retry_count = 0,
                         last_error = null, next_attempt_at = excluded.next_attempt_at, updated_at = excluded.updated_at
                     """, Map.of("id", imageId, "now", Timestamp.from(now)));
         }

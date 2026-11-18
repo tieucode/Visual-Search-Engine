@@ -7,6 +7,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -18,7 +19,7 @@ public final class PreparationPipeline implements AutoCloseable {
     private final List<ImageItem> items;
     private final int batchSize;
     private final ThreadPoolTaskExecutor executor;
-    private final ImagePreparation preparation;
+    private final Function<ImageItem, PreparedImage> preparation;
     private final List<Future<Outcome>> futures = new ArrayList<>();
     private int consumed;
     private int submitted;
@@ -27,7 +28,7 @@ public final class PreparationPipeline implements AutoCloseable {
             List<ImageItem> items,
             int batchSize,
             ThreadPoolTaskExecutor executor,
-            ImagePreparation preparation) {
+            Function<ImageItem, PreparedImage> preparation) {
         this.items = items;
         this.batchSize = batchSize;
         this.executor = executor;
@@ -56,7 +57,7 @@ public final class PreparationPipeline implements AutoCloseable {
                     executor.submit(
                             () -> {
                                 try {
-                                    return new Outcome(item, preparation.prepare(item), null);
+                                    return new Outcome(item, preparation.apply(item), null);
                                 } catch (RuntimeException failure) {
                                     return new Outcome(item, null, failure);
                                 }

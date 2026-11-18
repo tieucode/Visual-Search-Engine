@@ -35,18 +35,10 @@ public class IndexingMessageValidator {
 
         Map<UUID, ImageIndexingMessage.ImageItem> unique = new LinkedHashMap<>();
         for (ImageIndexingMessage.ImageItem item : message.images()) {
-            if (item == null
-                    || item.imageId() == null
-                    || item.imageUrl() == null
-                    || item.imageUrl().isBlank()) {
-                throw new InvalidIndexingMessageException(
-                        "Every message item requires imageId and imageUrl");
+            if (item == null || item.imageId() == null) {
+                throw new InvalidIndexingMessageException("Every message item requires imageId");
             }
-            ImageIndexingMessage.ImageItem previous = unique.putIfAbsent(item.imageId(), item);
-            if (previous != null && !previous.imageUrl().equals(item.imageUrl())) {
-                throw new InvalidIndexingMessageException(
-                        "Duplicate imageId has conflicting imageUrl: " + item.imageId());
-            }
+            unique.putIfAbsent(item.imageId(), item);
         }
         return List.copyOf(unique.values());
     }
