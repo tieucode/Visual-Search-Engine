@@ -28,9 +28,9 @@ public class IndexingJobOutboxRepository {
                 )
                 update indexing_job_outbox x set status = 'PROCESSING', updated_at = :now
                 from candidates c where x.image_id = c.image_id
-                returning x.image_id, x.image_url, x.retry_count
+                returning x.image_id, x.retry_count
                 """, Map.of("now", Timestamp.from(now), "limit", limit),
-                (rs, row) -> new OutboxJob(rs.getObject("image_id", UUID.class), rs.getString("image_url"), rs.getInt("retry_count")));
+                (rs, row) -> new OutboxJob(rs.getObject("image_id", UUID.class), rs.getInt("retry_count")));
     }
 
     public int releaseStaleClaims(Duration timeout) {
@@ -64,5 +64,5 @@ public class IndexingJobOutboxRepository {
                 .addValue("now", Timestamp.from(now)));
     }
 
-    public record OutboxJob(UUID imageId, String imageUrl, int retryCount) {}
+    public record OutboxJob(UUID imageId, int retryCount) {}
 }

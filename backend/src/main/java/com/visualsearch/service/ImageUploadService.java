@@ -178,8 +178,6 @@ public class ImageUploadService {
                 thumbObjectName = null;
             }
 
-            String fullImageUrl = minioStorageService.getImageUrl(originalObjectName);
-
             // Lưu Image và trạng thái indexing ban đầu trong cùng transaction.
             indexingJobPersistenceService.createImageAndPendingIndex(
                     batchId,
@@ -189,8 +187,7 @@ public class ImageUploadService {
                     dimensions.width(),
                     dimensions.height(),
                     file.getSize(),
-                    imageFormat,
-                    fullImageUrl);
+                    imageFormat);
             persisted = true;
             return SingleImageResult.success();
 

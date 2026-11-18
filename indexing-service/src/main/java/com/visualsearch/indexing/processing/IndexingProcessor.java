@@ -73,7 +73,7 @@ public class IndexingProcessor {
                                 pending,
                                 properties.getAi().getBatchSize(),
                                 imagePreparationExecutor,
-                                preparation)) {
+                                item -> preparation.prepare(item.imageId(), states.get(item.imageId()).imagePath()))) {
                     while (pipeline.hasNext()) {
                         requireRunning();
                         if (!aiServiceClient.isAvailableForBusiness()) {

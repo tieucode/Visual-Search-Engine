@@ -24,6 +24,10 @@ public class OcrSearchOutbox {
     @Column(name = "image_id", nullable = false)
     private UUID imageId;
 
+    // Start above the internal versions of documents written before versioned indexing.
+    @Column(name = "revision", nullable = false, columnDefinition = "bigint default 1099511627776")
+    private long revision = 1099511627776L;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status = "PENDING";
 

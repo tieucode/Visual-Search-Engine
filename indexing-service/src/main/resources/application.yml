@@ -37,6 +37,13 @@ spring:
         retry:
           enabled: false
 
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:miniopassword}
+  region: ${MINIO_REGION:us-east-1}
+  bucket-images: ${MINIO_BUCKET_IMAGES:images}
+
 indexing:
   max-retries: ${INDEXING_MAX_RETRIES:3}
   job-outbox:

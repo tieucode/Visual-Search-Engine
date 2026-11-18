@@ -1,5 +1,7 @@
 package com.visualsearch.indexing.messaging;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -11,5 +13,6 @@ public record ImageIndexingMessage(List<ImageItem> images) {
         images = images == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(images));
     }
 
-    public record ImageItem(UUID imageId, String imageUrl) {}
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ImageItem(UUID imageId) {}
 }

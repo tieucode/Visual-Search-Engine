@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
@@ -20,7 +21,7 @@ public class ElasticsearchOcrIndexClient {
     private final ObjectMapper objectMapper;
     private final AtomicBoolean initialized = new AtomicBoolean();
 
-    public void upsert(OcrIndexDocument document) {
+    public void upsert(OcrIndexDocument document, long revision) {
         ensureIndex();
         ObjectNode body = objectMapper.createObjectNode();
         body.put("imageId", document.imageId().toString());
@@ -33,25 +34,29 @@ public class ElasticsearchOcrIndexClient {
         body.set("rawTexts", objectMapper.valueToTree(document.rawTexts()));
         if (document.confidenceScore() == null) body.putNull("confidenceScore");
         else body.put("confidenceScore", document.confidenceScore());
-        indexingElasticsearchRestClient.put()
-                .uri("/{index}/_doc/{id}", properties.getElasticsearch().getOcrIndex(), document.imageId())
-                .body(body)
-                .retrieve()
-                .toBodilessEntity();
+        write(document.imageId(), revision, body);
     }
 
-    public void initializeIndex() {
+    public void markDeleted(UUID imageId, long revision) {
         ensureIndex();
+        ObjectNode tombstone = objectMapper.createObjectNode();
+        tombstone.put("imageId", imageId.toString());
+        tombstone.put("deleted", true);
+        write(imageId, revision, tombstone);
     }
 
-    public void delete(String imageId) {
-        ensureIndex();
+    private void write(UUID imageId, long revision, ObjectNode body) {
         try {
-            indexingElasticsearchRestClient.delete()
-                    .uri("/{index}/_doc/{id}", properties.getElasticsearch().getOcrIndex(), imageId)
-                    .retrieve().toBodilessEntity();
-        } catch (HttpClientErrorException.NotFound ignored) {
-            // Deletion is idempotent; the document may already be absent.
+            indexingElasticsearchRestClient.put()
+                    .uri("/{index}/_doc/{id}?version={revision}&version_type=external",
+                            properties.getElasticsearch().getOcrIndex(), imageId, revision)
+                    .body(body).retrieve().toBodilessEntity();
+        } catch (HttpClientErrorException.Conflict conflict) {
+            // A duplicate or superseded write has already reached this document.
+            var response = conflict.getResponseBodyAs(JsonNode.class);
+            if (response == null || !"version_conflict_engine_exception".equals(response.at("/error/type").asText())) {
+                throw conflict;
+            }
         }
     }
 
@@ -66,6 +71,7 @@ public class ElasticsearchOcrIndexClient {
             props.putObject("imageId").put("type", "keyword");
             props.putObject("imagePath").put("type", "keyword");
             props.putObject("thumbnailPath").put("type", "keyword");
+            props.putObject("deleted").put("type", "boolean");
             props.putObject("width").put("type", "integer");
             props.putObject("height").put("type", "integer");
             props.putObject("normalizedTexts").put("type", "text").put("analyzer", "standard");

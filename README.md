@@ -92,6 +92,13 @@ Backend một lần để tạo schema trước khi scale worker.
 Backend không cần kết nối RabbitMQ để phát job upload. Nếu RabbitMQ hoặc worker tạm
 thời không sẵn sàng, các job vẫn nằm trong outbox để worker publish lại sau.
 
+Khi nâng cấp từ worker dùng URL ký sẵn, dừng các worker cũ và chạy
+`backend/src/main/resources/schema.sql` trên PostgreSQL hiện có trước khi khởi động
+worker mới. Sau đó cập nhật backend. Backend cũng chạy script này khi khởi động.
+Worker đọc object key từ `images.path` và ký URL MinIO tại mỗi lần tải, kể cả
+với message cũ còn trong queue. Worker cần cùng bucket, endpoint, region và
+thông tin truy cập MinIO như backend.
+
 Để chạy bốn worker độc lập, mỗi worker xử lý tuần tự một message:
 
 ```bash

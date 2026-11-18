@@ -4,7 +4,9 @@ import com.visualsearch.indexing.config.IndexingProperties;
 import com.visualsearch.indexing.persistence.IndexingJobOutboxRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.annotation.SchedulingConfigurer;
+import org.springframework.scheduling.config.FixedDelayTask;
+import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -13,12 +15,17 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class IndexingJobOutboxPoller {
+public class IndexingJobOutboxPoller implements SchedulingConfigurer {
     private final IndexingJobOutboxRepository repository;
     private final IndexingMessagePublisher publisher;
     private final IndexingProperties properties;
 
-    @Scheduled(fixedDelayString = "${indexing.job-outbox.poll-interval:5000}")
+    @Override
+    public void configureTasks(ScheduledTaskRegistrar registrar) {
+        registrar.addFixedDelayTask(new FixedDelayTask(this::poll,
+                properties.getJobOutbox().getPollInterval(), Duration.ZERO));
+    }
+
     public void poll() {
         var settings = properties.getJobOutbox();
         repository.releaseStaleClaims(settings.getClaimTimeout());
@@ -27,7 +34,7 @@ public class IndexingJobOutboxPoller {
 
         try {
             publisher.publishInitial(jobs.stream()
-                    .map(job -> new ImageIndexingMessage.ImageItem(job.imageId(), job.imageUrl()))
+                    .map(job -> new ImageIndexingMessage.ImageItem(job.imageId()))
                     .toList());
             repository.markPublished(jobs.stream().map(IndexingJobOutboxRepository.OutboxJob::imageId).toList());
         } catch (Exception exception) {

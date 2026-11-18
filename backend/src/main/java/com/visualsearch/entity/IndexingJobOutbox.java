@@ -24,7 +24,7 @@ public class IndexingJobOutbox {
     @Column(name = "image_id", nullable = false)
     private UUID imageId;
 
-    @Column(name = "image_url", nullable = false, length = 2048)
+    @Column(name = "image_url", length = 2048)
     private String imageUrl;
 
     @Column(name = "status", nullable = false, length = 20)
@@ -42,8 +42,7 @@ public class IndexingJobOutbox {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    public IndexingJobOutbox(UUID imageId, String imageUrl) {
+    public IndexingJobOutbox(UUID imageId) {
         this.imageId = imageId;
-        this.imageUrl = imageUrl;
     }
 }
