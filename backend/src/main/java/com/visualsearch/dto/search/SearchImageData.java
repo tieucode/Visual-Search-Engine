@@ -16,6 +16,6 @@ public record SearchImageData(
         Integer width,
         @Schema(description = "Height in pixels, if known", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
         Integer height,
-        @Schema(description = "Cosine similarity from Qdrant, not a probability", example = "0.83",
+        @Schema(description = "Similarity score, or zero for recommendations from popularity and recency", example = "0.83",
                 requiredMode = Schema.RequiredMode.REQUIRED)
         double score) {}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { MAX_IMAGES } from '../../hooks/useImageQueue';
 import { formatBytes, formatNumber } from '../../utils/format';
+import { MAX_IMAGE_FILE_MB } from '../../utils/imageLimits';
 
 interface DropZoneProps {
   count: number;
@@ -109,7 +110,7 @@ export function DropZone({ count, totalBytes, disabled, onFiles }: DropZoneProps
       <span className="upload-drop__icon"><UploadCloud size={24} strokeWidth={1.5} aria-hidden="true" /></span>
       <p className="upload-drop__title">Kéo ảnh vào đây hoặc <span className="upload-drop__link">chọn ảnh</span></p>
       <div className="upload-drop__meta">
-        <span>JPG, PNG, WEBP</span>
+        <span>JPG, PNG, WEBP · {MAX_IMAGE_FILE_MB} MB/ảnh</span>
         <span aria-hidden="true">·</span>
         <span>Dán bằng <kbd className="kbd">Ctrl + V</kbd></span>
       </div>

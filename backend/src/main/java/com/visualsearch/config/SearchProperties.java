@@ -1,6 +1,8 @@
 package com.visualsearch.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -18,7 +20,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "app.search")
 public class SearchProperties {
     @Min(1)
-    private int maxImageBytes = 10 * 1024 * 1024;
+    private int maxImageBytes = 20 * 1024 * 1024;
     @Min(1)
     private long maxImagePixels = 40_000_000;
     @Valid
@@ -27,6 +29,16 @@ public class SearchProperties {
     private Qdrant qdrant = new Qdrant();
     @Valid
     private Elasticsearch elasticsearch = new Elasticsearch();
+    @Valid
+    private Recommendation recommendation = new Recommendation();
+
+    @Getter
+    @Setter
+    public static class Recommendation {
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double clusterThreshold = 0.80;
+    }
 
     @Getter
     @Setter

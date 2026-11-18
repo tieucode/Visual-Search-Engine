@@ -27,6 +27,7 @@ public class ElasticsearchOcrSearchClient {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("size", limit);
         body.put("track_total_hits", false);
+        body.putArray("_source").add("imageId").add("rawTexts").add("confidenceScore");
         ObjectNode bool = body.putObject("query").putObject("bool");
         bool.putArray("must_not").addObject().putObject("term").put("deleted", true);
         ArrayNode must = bool.putArray("must");
@@ -65,10 +66,6 @@ public class ElasticsearchOcrSearchClient {
                 if (raw.isArray()) raw.forEach(value -> rawTexts.add(value.asText()));
                 result.add(new Hit(
                         imageId,
-                        source.path("imagePath").asText(),
-                        nullableText(source.path("thumbnailPath")),
-                        nullableInt(source.path("width")),
-                        nullableInt(source.path("height")),
                         source.path("confidenceScore").isNumber()
                                 ? source.path("confidenceScore").asDouble() : 0.0,
                         List.copyOf(rawTexts),
@@ -94,14 +91,6 @@ public class ElasticsearchOcrSearchClient {
         }
     }
 
-    private String nullableText(JsonNode value) {
-        return value == null || value.isMissingNode() || value.isNull() ? null : value.asText();
-    }
-
-    private Integer nullableInt(JsonNode value) {
-        return value == null || value.isMissingNode() || value.isNull() ? null : value.asInt();
-    }
-
-    public record Hit(UUID imageId, String imagePath, String thumbnailPath, Integer width, Integer height,
-                      double confidenceScore, List<String> rawTexts, double rankScore, UUID sortImageId) {}
+    public record Hit(UUID imageId, double confidenceScore, List<String> rawTexts,
+                      double rankScore, UUID sortImageId) {}
 }

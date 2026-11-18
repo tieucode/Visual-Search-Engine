@@ -1,6 +1,6 @@
 import type { SearchImageData, SearchPageData } from '../types/search';
 
-// Demo data remains for recommendations, OCR and related images opened from those feeds.
+// Demo data for legacy image-detail links and their related images.
 const photos = [
   ['photo-1441974231531-c6227db76b6e', 800, 1100],
   ['photo-1470770841072-f978cf4d019e', 900, 650],
@@ -60,15 +60,6 @@ const posterImages: SearchImageData[] = Array.from({ length: 36 }, (_, index) =>
 
 export function findDemoImage(id: string): SearchImageData | undefined {
   return [...photoImages, ...posterImages].find(image => image.imageId === id);
-}
-
-/** Replace this adapter with the personalized recommendation API when it is available. */
-export async function recommendedDemo(signal: AbortSignal, cursor = '0'): Promise<SearchPageData> {
-  await waitForDemo(signal);
-  const offset = Number(cursor);
-  const items = photoImages.slice(offset, offset + 20);
-  const hasMore = offset + items.length < photoImages.length;
-  return { searchId: 'demo-recommended', searchType: 'TEXT_SEMANTIC', items, size: 20, hasMore, nextCursor: hasMore ? String(offset + items.length) : null };
 }
 
 function waitForDemo(signal: AbortSignal): Promise<void> {

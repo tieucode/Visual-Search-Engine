@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import { ArrowUpRight } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import type { SearchImageData } from '../../types/search';
+import { recordRecommendationClick } from '../../services/recommendationService';
 import { SearchImage } from './SearchImage';
 import { useSearchWorkspace } from './SearchWorkspace';
 
@@ -59,7 +60,15 @@ export function MasonryGrid({ items, featured, loading = false }: { items: Searc
           state={{ image: item, from: `${location.pathname}${location.search}` }}
           className="search-tile" style={layout.tiles[index]}
           aria-label={`Xem chi tiết ảnh ${index + 1}`}
-          onClick={() => { if (location.pathname === '/') workspace.scrollY.current = window.scrollY; }}
+          onClick={event => {
+            if (event.defaultPrevented) return;
+            if (location.pathname === '/') workspace.scrollY.current = window.scrollY;
+            if (!item.imageId.startsWith('demo-')) {
+              void recordRecommendationClick(item.imageId).catch(() => {
+                // Click tracking runs independently of navigation.
+              });
+            }
+          }}
         >
           <SearchImage image={item} alt={`Kết quả tìm kiếm ${index + 1}`} />
           {item.rawTexts?.length ? <span className="search-tile__ocr" title={item.rawTexts.join(' · ')}>{item.rawTexts.join(' · ')}</span> : null}

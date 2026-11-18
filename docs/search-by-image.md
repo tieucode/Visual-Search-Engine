@@ -141,7 +141,7 @@ Backend đọc cùng cấu hình collection/vector/model endpoint với indexing
 | `QDRANT_BASE_URL` | `http://localhost:6333` |
 | `QDRANT_COLLECTION` / `QDRANT_VECTOR_SIZE` | `images` / `768` |
 | `QDRANT_CONNECT_TIMEOUT` / `QDRANT_REQUEST_TIMEOUT` | `3s` / `10s` |
-| `SEARCH_MAX_IMAGE_BYTES` / `SEARCH_MAX_IMAGE_PIXELS` | `10485760` / `40000000` |
+| `SEARCH_MAX_IMAGE_BYTES` / `SEARCH_MAX_IMAGE_PIXELS` | `20971520` / `40000000` |
 | `MINIO_PUBLIC_ENDPOINT` | fallback về `MINIO_ENDPOINT` |
 | `MINIO_REGION` | `us-east-1` |
 

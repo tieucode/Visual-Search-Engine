@@ -31,8 +31,10 @@ app:
   ocr-normalization:
     enabled: ${APP_OCR_NORMALIZATION_ENABLED:false}
   search:
-    max-image-bytes: ${SEARCH_MAX_IMAGE_BYTES:10485760}
+    max-image-bytes: ${SEARCH_MAX_IMAGE_BYTES:20971520}
     max-image-pixels: ${SEARCH_MAX_IMAGE_PIXELS:40000000}
+    recommendation:
+      cluster-threshold: ${RECOMMENDATION_CLUSTER_THRESHOLD:0.80}
     ai:
       base-url: ${AI_SERVICE_BASE_URL:http://localhost:8000}
       connect-timeout: ${AI_SERVICE_CONNECT_TIMEOUT:3s}
@@ -51,7 +53,7 @@ app:
 
   # Upload configuration
   upload:
-    max-file-size-mb: 10
+    max-file-size-mb: 20
     thumbnail-width-px: 400
     batch-timeout-minutes: 15
 

@@ -9,12 +9,13 @@ import { ImagesModal } from '../../components/upload/ImagesModal';
 import { Lightbox } from '../../components/upload/Lightbox';
 import { PreviewStrip } from '../../components/upload/PreviewStrip';
 import { UploadProgressModal } from '../../components/upload/UploadProgressModal';
-import { MAX_FILE_BYTES, MAX_IMAGES, useImageQueue } from '../../hooks/useImageQueue';
+import { MAX_IMAGES, useImageQueue } from '../../hooks/useImageQueue';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useProcessingBatches } from '../../hooks/useProcessingBatches';
 import { ApiClientError } from '../../services/apiClient';
-import { CHUNK_SIZE, initBatch, uploadChunk } from '../../services/uploadService';
+import { initBatch, splitUploadChunks, uploadChunk } from '../../services/uploadService';
 import { formatNumber, shortName } from '../../utils/format';
+import { MAX_IMAGE_FILE_MB } from '../../utils/imageLimits';
 import '../../styles/upload.css';
 
 const DONE_DELAY_MS = 600;
@@ -38,7 +39,6 @@ export function UploadPage() {
 
   const uploading = progress !== null;
   const batchLimit = isMobile ? 3 : 10;
-  const maxMb = MAX_FILE_BYTES / (1024 * 1024);
 
   useEffect(() => {
     if (queue.items.length === 0) setShowImages(false);
@@ -60,11 +60,11 @@ export function UploadPage() {
     }
     if (report.oversized.length > 0) {
       toast('warning', report.oversized.length === 1
-        ? `${shortName(report.oversized[0])} vượt ${maxMb}MB`
-        : `${report.oversized.length} tệp vượt ${maxMb}MB`);
+        ? `${shortName(report.oversized[0])} vượt ${MAX_IMAGE_FILE_MB} MB`
+        : `${report.oversized.length} tệp vượt ${MAX_IMAGE_FILE_MB} MB`);
     }
     if (report.truncated > 0) toast('warning', `Đã đạt tối đa ${formatNumber(MAX_IMAGES)} ảnh`);
-  }, [queue, toast, maxMb]);
+  }, [queue, toast]);
 
   async function handleUpload() {
     const files = queue.items.map((item) => item.file);
@@ -75,9 +75,9 @@ export function UploadPage() {
       const { batchId } = await initBatch(files.length);
       let done = 0;
       let failed = 0;
-      for (let start = 0; start < files.length; start += CHUNK_SIZE) {
-        const chunk = files.slice(start, start + CHUNK_SIZE);
-        const result = await uploadChunk(batchId, chunk, start + CHUNK_SIZE >= files.length);
+      const chunks = splitUploadChunks(files);
+      for (const [index, chunk] of chunks.entries()) {
+        const result = await uploadChunk(batchId, chunk, index === chunks.length - 1);
         failed += result.failedCount;
         done += chunk.length;
         setProgress({ done, total: files.length });

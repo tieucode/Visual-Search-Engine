@@ -42,7 +42,7 @@ public class ImageUploadService {
     @Qualifier("uploadExecutor")
     private final Executor uploadExecutor;
 
-    @Value("${app.upload.max-file-size-mb:10}")
+    @Value("${app.upload.max-file-size-mb:20}")
     private long maxFileSizeMb;
 
     @Value("${app.upload.max-image-pixels:40000000}")
