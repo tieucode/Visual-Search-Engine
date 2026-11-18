@@ -75,7 +75,11 @@ export function useSearchFeed() {
     } catch (failure) {
       if (controller.signal.aborted || current !== generation.current) return;
       setUnauthorized(failure instanceof ApiClientError && failure.status === 401);
-      setMoreError(failure instanceof Error ? failure.message : 'Không thể tải thêm ảnh.');
+      if (previous.searchType === 'RECOMMENDATION' && failure instanceof ApiClientError && failure.status === 404) {
+        setError('Danh sách đề xuất đã hết hạn. Hãy tải lại để xem ảnh mới.');
+      } else {
+        setMoreError(failure instanceof Error ? failure.message : 'Không thể tải thêm ảnh.');
+      }
     } finally {
       if (current === generation.current) { busy.current = false; setLoadingMore(false); }
     }

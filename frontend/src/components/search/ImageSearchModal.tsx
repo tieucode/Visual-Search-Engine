@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { ImageUp, Loader2, X } from 'lucide-react';
+import { MAX_IMAGE_FILE_BYTES, MAX_IMAGE_FILE_MB } from '../../utils/imageLimits';
 import { useSearchWorkspace } from './SearchWorkspace';
 
 /** Nonblocking dialog below the header: the camera button can still toggle it. */
@@ -20,7 +21,7 @@ export function ImageSearchModal({ triggerRef }: { triggerRef: RefObject<HTMLBut
     if (!file || busy.current) return;
     setError('');
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setError('Chọn ảnh JPG, PNG hoặc WebP.'); return; }
-    if (file.size > 10 * 1024 * 1024) { setError('Ảnh tối đa 10 MB.'); return; }
+    if (file.size > MAX_IMAGE_FILE_BYTES) { setError(`Ảnh tối đa ${MAX_IMAGE_FILE_MB} MB.`); return; }
     const current = ++generation.current;
     busy.current = true; setValidating(true);
     try {
@@ -73,7 +74,7 @@ export function ImageSearchModal({ triggerRef }: { triggerRef: RefObject<HTMLBut
     >
       {validating ? <Loader2 className="search-spinner" size={32} aria-hidden="true" /> : <ImageUp size={32} strokeWidth={1.5} aria-hidden="true" />}
       <span>{validating ? 'Đang đọc ảnh…' : 'Chọn ảnh hoặc kéo thả vào đây'}</span>
-      <small id="image-search-help">JPG, PNG, WebP · 10 MB · Ctrl + V</small>
+      <small id="image-search-help">JPG, PNG, WebP · {MAX_IMAGE_FILE_MB} MB · Ctrl + V</small>
     </button>
     <input ref={inputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Chọn ảnh tìm kiếm" tabIndex={-1} disabled={validating} onChange={event => { void acceptFile(event.target.files?.[0]); event.target.value = ''; }} />
     {error && <p className="field-error" role="alert">{error}</p>}

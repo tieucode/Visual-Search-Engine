@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     embedding_microbatch_size: int = Field(default=2, ge=1, le=20)
 
     # Shared upload and execution limits
-    max_upload_size_bytes: int = Field(default=15 * 1024 * 1024, gt=0)
+    max_upload_size_bytes: int = Field(default=20 * 1024 * 1024, gt=0)
     max_image_pixels: int = Field(default=25_000_000, gt=0)
     max_batch_images: int = Field(default=20, gt=0)
     max_active_processing: int = Field(default=3, gt=0)

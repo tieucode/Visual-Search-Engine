@@ -80,7 +80,7 @@ transition: all 200ms var(--ease-spring);
 **Validation:**
 - Chỉ nhận: `image/jpeg`, `image/jpg`, `image/png`, `image/webp`
 - Từ chối: GIF, BMP — hiển thị toast error nhỏ
-- Max mỗi file: `10MB` → toast warning nếu vượt
+- Max mỗi file: `20 MB` → toast warning nếu vượt
 - Max tổng: `1000` ảnh → cắt bớt và toast warning
 - Dedup: so sánh `name + size`, bỏ qua duplicate
 
@@ -217,7 +217,7 @@ Dùng `.toast` theo `components.css`:
 | Trigger | Type | Message |
 |---|---|---|
 | File type không hợp lệ | error | `"tên-file.gif không hỗ trợ"` |
-| File > 10MB | warning | `"tên-file.jpg vượt 10MB"` |
+| File > 20 MB | warning | `"tên-file.jpg vượt 20 MB"` |
 | Vượt 1000 ảnh | warning | `"Đã đạt tối đa 1,000 ảnh"` |
 | Upload thành công | success | `"24 ảnh đã được tải lên"` |
 | Upload lỗi | error | `"Lỗi kết nối, thử lại"` |
@@ -252,7 +252,7 @@ Content-Type: multipart/form-data
 ```
 
 **FormData fields:**
-- `files`: danh sách File (mỗi request gửi tối đa 1 chunk, ví dụ 50 ảnh)
+- `files` chứa tối đa 50 ảnh mỗi request. Frontend chia chunk với tối đa 500 MB dữ liệu ảnh để chừa chỗ cho multipart header.
 
 **Query param `isLast`**: `true` cho chunk cuối cùng, `false` cho các chunk trước.
 

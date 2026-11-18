@@ -15,9 +15,10 @@ export function SearchPage() {
   return <main className={`search-page page-container page-container--grid ${hasQueryImage ? 'search-page--image' : ''}`}>
     <h1 className="sr-only">{mode === 'recommend' ? 'Ảnh dành cho bạn' : 'Kết quả tìm kiếm'}</h1>
     {hasQueryImage && queryImage && <img className="search-query-image" src={preview} width={queryImage.width} height={queryImage.height} alt="Ảnh tìm kiếm" />}
-    <section className="search-results" aria-label={mode === 'recommend' ? 'Ảnh đề xuất mẫu' : 'Kết quả tìm kiếm'} aria-busy={feed.loading || feed.loadingMore}>
+    <section className="search-results" aria-label={mode === 'recommend' ? 'Ảnh đề xuất' : 'Kết quả tìm kiếm'} aria-busy={feed.loading || feed.loadingMore}>
       <MasonryGrid items={feed.items} loading={feed.loading || !feed.page && !feed.error} />
-      {!feed.loading && <FeedStatus feed={feed} retry={retry} />}
+      {!feed.loading && <FeedStatus feed={feed} retry={retry}
+        empty={mode === 'recommend' ? 'Chưa có ảnh để đề xuất.' : undefined} />}
     </section>
   </main>;
 }

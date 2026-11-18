@@ -79,9 +79,25 @@ services:
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: visual-search-ai-service
+    restart: unless-stopped
+    ports:
+      - "${AI_SERVICE_PORT:-8000}:8000"
+    environment:
+      APP_ENV: production
+      SIGLIP_MODEL: ${SIGLIP_MODEL:-google/siglip-base-patch16-224}
+      OCR_LANGUAGES: ${OCR_LANGUAGES:-en,vi}
+    volumes:
+      - ai_models_cache:/root/.cache
+
 volumes:
   postgres_data:
   minio_data:
   rabbitmq_data:
   qdrant_data:
   elasticsearch_data:
+  ai_models_cache:

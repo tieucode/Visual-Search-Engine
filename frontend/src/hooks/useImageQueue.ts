@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MAX_IMAGE_FILE_BYTES } from '../utils/imageLimits';
 import { releaseThumbnail } from '../utils/thumbnail';
 
 export const MAX_IMAGES = 1000;
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const EXTENSION_TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
@@ -47,7 +47,7 @@ export function useImageQueue() {
 
     for (const file of files) {
       if (!isSupported(file)) { report.unsupported.push(file.name); continue; }
-      if (file.size > MAX_FILE_BYTES) { report.oversized.push(file.name); continue; }
+      if (file.size > MAX_IMAGE_FILE_BYTES) { report.oversized.push(file.name); continue; }
       const key = fingerprint(file);
       if (known.has(key)) { report.duplicates += 1; continue; }
       if (accepted.length >= room) { report.truncated += 1; continue; }

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSearchFeed } from '../../hooks/useSearchFeed';
-import { recommendedDemo } from '../../services/mockSearchService';
+import { getRecommendations, nextRecommendationPage } from '../../services/recommendationService';
 import { nextOcrPage, nextSearchPage, searchByImage, searchByOcr, searchByText } from '../../services/searchService';
 import type { SearchMode } from '../../types/search';
 
@@ -32,7 +32,7 @@ function useWorkspace() {
 
   const loadRecommendations = () => {
     setMode('recommend');
-    void feed.start(signal => recommendedDemo(signal), (page, signal) => recommendedDemo(signal, page.nextCursor!));
+    void feed.start(getRecommendations, nextRecommendationPage);
   };
   const loadText = (nextMode: 'text' | 'ocr', text: string) => {
     setMode(nextMode);
@@ -94,7 +94,11 @@ function useWorkspace() {
   const retry = () => {
     if (mode === 'image' && queryImage) void feed.start(signal => searchByImage(queryImage.file, signal), nextSearchPage);
     else if (mode === 'text' || mode === 'ocr') loadText(mode, submittedQuery);
-    else loadRecommendations();
+    else {
+      scrollY.current = 0;
+      window.scrollTo(0, 0);
+      loadRecommendations();
+    }
   };
   const toggleLike = (id: string) => setLikes(current => {
     const next = new Set(current);

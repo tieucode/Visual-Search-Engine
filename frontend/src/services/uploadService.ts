@@ -1,7 +1,9 @@
 import { request } from './apiClient';
 
 /** Số ảnh tối đa mỗi request upload (khớp backend). */
-export const CHUNK_SIZE = 50;
+const CHUNK_SIZE = 50;
+// Leave space for multipart headers within the backend's 512 MB request limit.
+const MAX_CHUNK_BYTES = 500 * 1024 * 1024;
 export const COMPACT_BATCH_SIZE = 10;
 
 export interface ChunkResult {
@@ -32,6 +34,23 @@ export async function initBatch(totalImages: number): Promise<{ batchId: string 
     data: { totalImages },
   });
   return response.data;
+}
+
+export function splitUploadChunks(files: File[]): File[][] {
+  const chunks: File[][] = [];
+  let chunk: File[] = [];
+  let bytes = 0;
+  for (const file of files) {
+    if (chunk.length > 0 && (chunk.length === CHUNK_SIZE || bytes + file.size > MAX_CHUNK_BYTES)) {
+      chunks.push(chunk);
+      chunk = [];
+      bytes = 0;
+    }
+    chunk.push(file);
+    bytes += file.size;
+  }
+  if (chunk.length > 0) chunks.push(chunk);
+  return chunks;
 }
 
 export async function uploadChunk(batchId: string, files: File[], isLast: boolean): Promise<ChunkResult> {
