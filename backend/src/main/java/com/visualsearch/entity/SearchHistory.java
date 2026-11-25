@@ -25,6 +25,9 @@ public class SearchHistory extends BaseEntity {
     @JoinColumn(name = "query_image_id")
     private Image queryImage;
 
+    @Column(name = "query_frame_ms")
+    private Integer queryFrameMs;
+
     @Column(name = "query_text", columnDefinition = "TEXT")
     private String queryText;
 

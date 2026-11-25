@@ -6,6 +6,7 @@ import com.visualsearch.dto.search.SearchPageData;
 import com.visualsearch.entity.Image;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.ImageType;
+import com.visualsearch.enums.MediaKind;
 import com.visualsearch.enums.SearchType;
 import com.visualsearch.exception.BadRequestException;
 import com.visualsearch.repository.ImageRepository;
@@ -77,6 +78,7 @@ public class OcrSearchService {
                     .stream().collect(Collectors.toMap(Image::getId, Function.identity()));
             for (var hit : batch) {
                 Image image = available.get(hit.imageId());
+                if (image != null && image.getMediaKind() != MediaKind.IMAGE) continue;
                 String imageUrl = image == null ? null : urls.imageUrl(image.getPath());
                 if (imageUrl == null) continue;
                 String thumbnailUrl = urls.thumbnailUrl(image.getThumbnailPath(), imageUrl);

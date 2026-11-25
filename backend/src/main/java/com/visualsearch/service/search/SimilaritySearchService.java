@@ -1,15 +1,20 @@
 package com.visualsearch.service.search;
 
 import com.visualsearch.client.QdrantSearchClient;
+import com.visualsearch.client.QdrantSearchClient.ClipFrame;
+import com.visualsearch.client.QdrantSearchClient.ScoredImage;
 import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.entity.Image;
-import com.visualsearch.enums.ImageType;
+import com.visualsearch.enums.MediaKind;
+import com.visualsearch.exception.ResourceNotFoundException;
+import com.visualsearch.exception.SearchDependencyException;
 import com.visualsearch.repository.ImageRepository;
 import com.visualsearch.service.ImageUrlResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,47 +30,149 @@ public class SimilaritySearchService {
     private final ImageRepository images;
     private final ImageUrlResolver urls;
 
-    public ResultPage search(List<Float> vector, long offset, int size) {
-        return search((scanOffset, limit) -> qdrant.search(vector, scanOffset, limit), offset, size);
+    public ResultPage search(List<Float> vector, long offset, Long clipOffset, int size) {
+        if (clipOffset == null) {
+            return merge(null, new Candidates((from, limit) -> qdrant.searchLegacy(vector, from, limit), offset, size),
+                    null, size);
+        }
+        return search(vector, List.of(), offset, clipOffset, size);
     }
 
-    public ResultPage searchSimilar(UUID imageId, long offset, int size) {
-        return search((scanOffset, limit) -> qdrant.searchSimilar(imageId, scanOffset, limit), offset, size);
+    public ResultPage searchSimilar(Image source, Integer frameMs, long offset, Long clipOffset, int size) {
+        UUID id = source.getId();
+        if (clipOffset == null && source.getMediaKind() == MediaKind.IMAGE) {
+            return merge(null, new Candidates((from, limit) -> qdrant.searchSimilar(id, from, limit), offset, size),
+                    null, size);
+        }
+        List<Float> vector;
+        if (source.getMediaKind() == MediaKind.IMAGE) {
+            vector = qdrant.getVectors(List.of(id)).get(id);
+            if (vector == null) throw new ResourceNotFoundException("Library image has no embedding");
+        } else {
+            if (images.findSearchableMedia(List.of(id)).isEmpty()) {
+                throw new ResourceNotFoundException("Clip indexing is incomplete");
+            }
+            var frames = qdrant.getClipFrames(List.of(id)).getOrDefault(id, List.of());
+            vector = frames.stream().filter(frame -> frameMs == null || frame.timestampMs() == frameMs)
+                    .findFirst().orElseThrow(() -> new ResourceNotFoundException("Clip frame not found")).vector();
+        }
+        return search(vector, List.of(id), offset, clipOffset, size);
     }
 
-    private ResultPage search(BiFunction<Long, Integer, List<QdrantSearchClient.ScoredImage>> retrieve,
-                              long offset, int size) {
-        List<SearchImageData> items = new ArrayList<>();
-        long scanOffset = offset;
-        int limit = size + 1;
+    private ResultPage search(List<Float> vector, List<UUID> excluded, long offset, Long clipOffset, int size) {
+        var stills = new Candidates((from, limit) -> qdrant.searchImages(vector, excluded, from, limit), offset, size);
+        var clips = clipOffset == null ? null
+                : new Candidates((from, limit) -> qdrant.searchClips(vector, excluded, from, limit), clipOffset, size);
+        return merge(vector, stills, clips, size);
+    }
+
+    private ResultPage merge(List<Float> vector, Candidates stills, Candidates clips, int size) {
+        List<Candidate> selected = new ArrayList<>();
+        boolean hasMore = false;
         while (true) {
-            var points = retrieve.apply(scanOffset, limit);
-            if (points.isEmpty()) {
-                return new ResultPage(List.copyOf(items), null);
+            Candidate still = stills.peek();
+            Candidate clip = clips == null ? null : clips.peek();
+            if (still == null && clip == null) break;
+            if (selected.size() == size) {
+                hasMore = true;
+                break;
             }
-            Map<UUID, Image> available = images.findByIdInAndType(
-                            points.stream().map(QdrantSearchClient.ScoredImage::id).toList(), ImageType.UPLOAD)
-                    .stream().collect(Collectors.toMap(Image::getId, Function.identity()));
-            for (var point : points) {
-                Image image = available.get(point.id());
-                String imageUrl = image == null ? null : urls.imageUrl(image.getPath());
-                if (imageUrl != null) {
-                    // Peek at one *visible* result; leave it for the next request.
-                    if (items.size() == size) {
-                        return new ResultPage(List.copyOf(items), scanOffset);
-                    }
-                    String thumbnailUrl = urls.thumbnailUrl(image.getThumbnailPath(), imageUrl);
-                    items.add(new SearchImageData(image.getId(), imageUrl, thumbnailUrl,
-                            image.getWidth(), image.getHeight(), point.score()));
+            Candidates best = clip == null || still != null && QdrantSearchClient.RANKING.compare(
+                    still.point(), clip.point()) <= 0 ? stills : clips;
+            selected.add(best.take());
+        }
+
+        List<UUID> clipIds = selected.stream().map(Candidate::image)
+                .filter(image -> image.getMediaKind() != MediaKind.IMAGE).map(Image::getId).toList();
+        var frames = clipIds.isEmpty() ? Map.<UUID, List<ClipFrame>>of() : qdrant.getClipFrames(clipIds);
+        var items = selected.stream().map(candidate -> {
+            Image image = candidate.image();
+            Integer time = image.getMediaKind() == MediaKind.IMAGE ? null
+                    : bestFrame(vector, frames.getOrDefault(image.getId(), List.of()));
+            String thumbnail = time == null ? image.getThumbnailPath() : frameThumbnail(image.getId(), time);
+            return new SearchImageData(image.getId(), candidate.url(), urls.thumbnailUrl(thumbnail, candidate.url()),
+                    image.getWidth(), image.getHeight(), candidate.point().score(),
+                    image.getMediaKind(), image.getDurationMs(), time);
+        }).toList();
+        return new ResultPage(items, hasMore ? stills.offset : null,
+                hasMore && clips != null ? clips.offset : null);
+    }
+
+    static String frameThumbnail(UUID id, int time) {
+        return "clips/" + id + "/" + time + ".jpg";
+    }
+
+    private int bestFrame(List<Float> vector, List<ClipFrame> frames) {
+        return frames.stream().max(Comparator.comparingDouble((ClipFrame frame) -> cosine(vector, frame.vector()))
+                .thenComparing(Comparator.comparingInt(ClipFrame::timestampMs).reversed()))
+                .orElseThrow(() -> new SearchDependencyException("Clip frame vectors are unavailable")).timestampMs();
+    }
+
+    private static double cosine(List<Float> left, List<Float> right) {
+        double product = 0;
+        double leftNorm = 0;
+        double rightNorm = 0;
+        for (int index = 0; index < left.size(); index++) {
+            double a = left.get(index);
+            double b = right.get(index);
+            product += a * b;
+            leftNorm += a * a;
+            rightNorm += b * b;
+        }
+        return product / Math.sqrt(leftNorm * rightNorm);
+    }
+
+    private record Candidate(ScoredImage point, Image image, String url) {}
+
+    /** The cursor tracks consumed Qdrant candidates, including invisible or deleted items. */
+    private final class Candidates {
+        private final BiFunction<Long, Integer, List<ScoredImage>> retrieve;
+        private final int limit;
+        private long offset;
+        private int index;
+        private boolean last;
+        private List<ScoredImage> points = List.of();
+        private Map<UUID, Image> available = Map.of();
+        private Candidate next;
+
+        Candidates(BiFunction<Long, Integer, List<ScoredImage>> retrieve, long offset, int size) {
+            this.retrieve = retrieve;
+            this.offset = offset;
+            this.limit = size + 1;
+        }
+
+        Candidate peek() {
+            while (next == null) {
+                if (index == points.size()) {
+                    if (last) return null;
+                    points = retrieve.apply(offset, limit);
+                    index = 0;
+                    last = points.size() < limit;
+                    if (points.isEmpty()) return null;
+                    available = images.findSearchableMedia(points.stream().map(ScoredImage::id).toList())
+                            .stream().collect(Collectors.toMap(Image::getId, Function.identity()));
                 }
-                // Advance by Qdrant candidates, including deleted/missing images, not by DTO count.
-                scanOffset++;
+                ScoredImage point = points.get(index);
+                Image image = available.get(point.id());
+                String url = image == null ? null : urls.imageUrl(image.getPath());
+                if (url == null) advance();
+                else next = new Candidate(point, image, url);
             }
-            if (points.size() < limit) {
-                return new ResultPage(List.copyOf(items), null);
-            }
+            return next;
+        }
+
+        Candidate take() {
+            var result = next;
+            advance();
+            return result;
+        }
+
+        private void advance() {
+            index++;
+            offset++;
+            next = null;
         }
     }
 
-    public record ResultPage(List<SearchImageData> items, Long nextOffset) {}
+    public record ResultPage(List<SearchImageData> items, Long nextOffset, Long nextClipOffset) {}
 }

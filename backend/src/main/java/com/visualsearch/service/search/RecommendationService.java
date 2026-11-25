@@ -11,6 +11,7 @@ import com.visualsearch.entity.Image;
 import com.visualsearch.entity.SearchClick;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.ImageType;
+import com.visualsearch.enums.MediaKind;
 import com.visualsearch.enums.SearchType;
 import com.visualsearch.exception.ResourceNotFoundException;
 import com.visualsearch.exception.SearchDependencyException;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +95,15 @@ public class RecommendationService {
         List<RecommendationRanking.Interest> interests;
         List<List<ScoredImage>> matches;
         try {
-            interests = RecommendationRanking.cluster(recent, qdrant.getVectors(recent),
+            var media = loadImages(recent);
+            List<UUID> stillIds = recent.stream().filter(id -> media.containsKey(id)
+                    && media.get(id).getMediaKind() == MediaKind.IMAGE).toList();
+            List<UUID> clipIds = recent.stream().filter(id -> media.containsKey(id)
+                    && media.get(id).getMediaKind() != MediaKind.IMAGE).toList();
+            var vectors = new HashMap<UUID, List<Float>>();
+            if (!stillIds.isEmpty()) vectors.putAll(qdrant.getVectors(stillIds));
+            qdrant.getClipFrames(clipIds).forEach((id, frames) -> vectors.put(id, frames.getFirst().vector()));
+            interests = RecommendationRanking.cluster(recent, vectors,
                     properties.getQdrant().getVectorSize(),
                     properties.getRecommendation().getClusterThreshold());
             if (interests.isEmpty()) return List.of();
@@ -126,16 +136,16 @@ public class RecommendationService {
             }
             items.add(new SearchImageData(image.getId(), imageUrl,
                     urls.thumbnailUrl(image.getThumbnailPath(), imageUrl),
-                    image.getWidth(), image.getHeight(), hit.score()));
+                    image.getWidth(), image.getHeight(), hit.score(), image.getMediaKind(), image.getDurationMs(), null));
         }
 
         return pagination.createPage(feedId, SearchType.RECOMMENDATION, size,
-                new SimilaritySearchService.ResultPage(List.copyOf(items), nextOffset));
+                new SimilaritySearchService.ResultPage(List.copyOf(items), nextOffset, null));
     }
 
     private Map<UUID, Image> loadImages(List<UUID> ids) {
         if (ids.isEmpty()) return Map.of();
-        return images.findByIdInAndType(ids, ImageType.UPLOAD).stream()
+        return images.findSearchableMedia(ids).stream()
                 .collect(Collectors.toMap(Image::getId, Function.identity()));
     }
 

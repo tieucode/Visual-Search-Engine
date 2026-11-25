@@ -18,7 +18,7 @@ import java.util.UUID;
 public class ImageHistoryService {
 
     private final ImageRepository imageRepository;
-    private final MinioStorageService minioStorageService;
+    private final ImageUrlResolver urls;
 
     @Transactional(readOnly = true)
     public Page<ImageUploadHistoryResponse> getMyUploads(
@@ -50,15 +50,11 @@ public class ImageHistoryService {
     }
 
     private ImageUploadHistoryResponse toResponse(Image image) {
-        String imageUrl = minioStorageService.getImageUrl(
-                image.getPath()
-        );
+        String imageUrl = urls.imageUrl(image.getPath());
 
         String thumbnailUrl = image.getThumbnailPath() == null
                 ? null
-                : minioStorageService.getImageUrl(
-                        image.getThumbnailPath()
-                );
+                : urls.thumbnailUrl(image.getThumbnailPath(), imageUrl);
 
         return new ImageUploadHistoryResponse(
                 image.getId(),
@@ -73,7 +69,9 @@ public class ImageHistoryService {
                 image.getType() == null
                         ? null
                         : image.getType().name(),
-                image.getCreatedAt()
+                image.getCreatedAt(),
+                image.getMediaKind(),
+                image.getDurationMs()
         );
     }
 }

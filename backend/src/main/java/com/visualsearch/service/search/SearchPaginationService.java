@@ -30,12 +30,16 @@ public class SearchPaginationService {
     }
 
     public String encodeCursor(UUID searchId, long offset, int size) {
-        if (searchId == null || offset < 1 || offset > Long.MAX_VALUE - MAX_PAGE_SIZE - 1
-                || size < 1 || size > MAX_PAGE_SIZE) {
+        return encodeCursor(searchId, offset, null, size);
+    }
+
+    private String encodeCursor(UUID searchId, long offset, Long clipOffset, int size) {
+        if (searchId == null || !validPosition(offset, clipOffset, size)) {
             throw new BadRequestException("Invalid search cursor position");
         }
-        String payload = ENCODER.encodeToString(("search-v1:" + searchId + ":" + offset + ":" + size)
-                .getBytes(StandardCharsets.UTF_8));
+        String fields = clipOffset == null ? "search-v1:" + searchId + ":" + offset + ":" + size
+                : "search-v2:" + searchId + ":" + offset + ":" + clipOffset + ":" + size;
+        String payload = ENCODER.encodeToString(fields.getBytes(StandardCharsets.UTF_8));
         return payload + "." + ENCODER.encodeToString(sign(payload));
     }
 
@@ -49,19 +53,28 @@ public class SearchPaginationService {
                 throw new IllegalArgumentException();
             }
             String[] fields = new String(DECODER.decode(parts[0]), StandardCharsets.UTF_8).split(":", -1);
-            if (fields.length != 4 || !"search-v1".equals(fields[0]) || !searchId.toString().equals(fields[1])) {
+            boolean mixed = fields.length == 5 && "search-v2".equals(fields[0]);
+            boolean legacy = fields.length == 4 && "search-v1".equals(fields[0]);
+            if ((!mixed && !legacy) || !searchId.toString().equals(fields[1])) {
                 throw new IllegalArgumentException();
             }
             long offset = Long.parseLong(fields[2]);
-            int size = Integer.parseInt(fields[3]);
-            if (offset < 1 || offset > Long.MAX_VALUE - MAX_PAGE_SIZE - 1
-                    || size < 1 || size > MAX_PAGE_SIZE) {
+            Long clipOffset = mixed ? Long.parseLong(fields[3]) : null;
+            int size = Integer.parseInt(fields[mixed ? 4 : 3]);
+            if (!validPosition(offset, clipOffset, size)) {
                 throw new IllegalArgumentException();
             }
-            return new Cursor(offset, size);
+            return new Cursor(offset, clipOffset, size);
         } catch (IllegalArgumentException exception) {
             throw new BadRequestException("Invalid search cursor");
         }
+    }
+
+    private boolean validPosition(long offset, Long clipOffset, int size) {
+        long maximum = Long.MAX_VALUE - MAX_PAGE_SIZE - 1;
+        return size >= 1 && size <= MAX_PAGE_SIZE && offset >= 0 && offset <= maximum
+                && (clipOffset == null ? offset > 0
+                : clipOffset >= 0 && clipOffset <= maximum && (offset > 0 || clipOffset > 0));
     }
 
     public String encodeOcrCursor(UUID searchId, double score, UUID imageId, int size) {
@@ -103,7 +116,7 @@ public class SearchPaginationService {
     public SearchPageData<SearchImageData> createPage(UUID searchId, SearchType searchType, int size,
                                                        SimilaritySearchService.ResultPage results) {
         String nextCursor = results.nextOffset() == null ? null
-                : encodeCursor(searchId, results.nextOffset(), size);
+                : encodeCursor(searchId, results.nextOffset(), results.nextClipOffset(), size);
         return new SearchPageData<>(searchId, searchType, results.items(), size, nextCursor != null, nextCursor);
     }
 
@@ -117,6 +130,6 @@ public class SearchPaginationService {
         }
     }
 
-    public record Cursor(long offset, int size) {}
+    public record Cursor(long offset, Long clipOffset, int size) {}
     public record OcrCursor(double score, UUID imageId, int size) {}
 }
