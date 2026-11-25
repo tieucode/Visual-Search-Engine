@@ -20,6 +20,7 @@ def elapsed_ms(started: float) -> float:
 
 async def process_chunk(
     runtime: Runtime, image_ids: list[str], files: list[UploadFile], budget: UploadBudget,
+    *, embedding_only: bool,
 ) -> list[BatchItem]:
     started = [time.perf_counter() for _ in files]
     items: list[BatchItem | None] = [None] * len(files)
@@ -38,7 +39,7 @@ async def process_chunk(
                 items[position] = failed_item(image_ids[position], elapsed_ms(started[position]), exc)
 
         try:
-            outcomes = await runtime.process_batch(prepared)
+            outcomes = await runtime.process_batch(prepared, embedding_only=embedding_only)
         except Exception as exc:
             outcomes = [exc] * len(prepared)
         for position, outcome in zip(positions, outcomes):
@@ -63,6 +64,21 @@ async def batch_indexing(
     imageIds: Annotated[list[str], Form(...)],
     images: Annotated[list[UploadFile], File(...)],
 ):
+    return await run_batch(runtime, imageIds, images, embedding_only=False)
+
+
+@router.post("/batch/embeddings", response_model=BatchResponse)
+async def batch_embeddings(
+    runtime: RuntimeDependency,
+    imageIds: Annotated[list[str], Form(...)],
+    images: Annotated[list[UploadFile], File(...)],
+):
+    return await run_batch(runtime, imageIds, images, embedding_only=True)
+
+
+async def run_batch(
+    runtime: Runtime, imageIds: list[str], images: list[UploadFile], *, embedding_only: bool,
+):
     with api_errors("batch_indexing"):
         try:
             budget = validate_batch(imageIds, images, runtime.settings)
@@ -75,7 +91,7 @@ async def batch_indexing(
                 try:
                     chunk = await runtime.run(
                         "background",
-                        lambda: process_chunk(runtime, chunk_ids, chunk_files, budget),
+                        lambda: process_chunk(runtime, chunk_ids, chunk_files, budget, embedding_only=embedding_only),
                     )
                     results.extend(chunk)
                 except ServiceError as exc:

@@ -114,7 +114,9 @@ class Runtime:
         ocr = await self.extract_ocr(image, priority)
         return ProcessedImage(embedding, self.processor.indexed_ocr(ocr))
 
-    async def process_batch(self, images: list[Image.Image]) -> list[ProcessedImage | Exception]:
+    async def process_batch(
+        self, images: list[Image.Image], *, embedding_only: bool = False,
+    ) -> list[ProcessedImage | Exception]:
         if not images:
             return []
         vectors: list[list[float] | Exception]
@@ -137,6 +139,9 @@ class Runtime:
         for image, vector in zip(images, vectors):
             if isinstance(vector, Exception):
                 results.append(vector)
+                continue
+            if embedding_only:
+                results.append(ProcessedImage(vector, []))
                 continue
             try:
                 ocr = await self.extract_ocr(image, "background")
