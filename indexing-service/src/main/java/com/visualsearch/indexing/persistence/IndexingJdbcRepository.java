@@ -32,7 +32,7 @@ public class IndexingJdbcRepository {
         var rows =
                 jdbc.query(
                         """
-                        select ix.image_id, ix.batch_id, ix.status, i.path
+                        select ix.image_id, ix.batch_id, ix.status, i.path, i.media_kind, i.duration_ms
                         from image_index ix join images i on i.id = ix.image_id
                         where ix.image_id in (:ids)
                         """,
@@ -41,7 +41,8 @@ public class IndexingJdbcRepository {
                                 new ImageState(
                                         rs.getObject("image_id", UUID.class),
                                         rs.getObject("batch_id", UUID.class),
-                                        IndexStatus.valueOf(rs.getString("status")), rs.getString("path")));
+                                        IndexStatus.valueOf(rs.getString("status")), rs.getString("path"),
+                                        rs.getString("media_kind"), rs.getObject("duration_ms", Integer.class)));
         Map<UUID, ImageState> states = new HashMap<>();
         rows.forEach(state -> states.put(state.imageId(), state));
         return states;
@@ -116,7 +117,7 @@ public class IndexingJdbcRepository {
                                         IndexStatus.valueOf(rs.getString("status"))));
         List<UUID> successes =
                 changed.stream()
-                        .filter(row -> row.status() == IndexStatus.SUCCESS)
+                        .filter(row -> row.status() == IndexStatus.SUCCESS && !writes.get(row.imageId()).clip())
                         .map(ChangedImage::imageId)
                         .toList();
         replaceOcr(successes, writes, now);

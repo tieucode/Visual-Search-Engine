@@ -17,7 +17,7 @@ public class OcrSearchReindexService {
                 insert into ocr_search_outbox(image_id, status, retry_count, last_error, next_attempt_at, updated_at)
                 select distinct o.image_id, 'PENDING', 0, null, now(), now()
                 from image_ocr o join images i on i.id = o.image_id
-                where i.deleted_at is null and i.type = 'UPLOAD'
+                where i.deleted_at is null and i.type = 'UPLOAD' and i.media_kind = 'IMAGE'
                 on conflict (image_id) do update set revision = ocr_search_outbox.revision + 1, status = 'PENDING', retry_count = 0,
                     last_error = null, next_attempt_at = now(), updated_at = now()
                 """);
@@ -28,7 +28,7 @@ public class OcrSearchReindexService {
         return jdbc.queryForObject("""
                 with eligible as (
                     select i.id from images i
-                    where i.deleted_at is null and i.type = 'UPLOAD'
+                    where i.deleted_at is null and i.type = 'UPLOAD' and i.media_kind = 'IMAGE'
                       and exists (select 1 from image_ocr o where o.image_id = i.id)
                 )
                 select count(*) as total,

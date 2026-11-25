@@ -1,6 +1,6 @@
 package com.visualsearch.indexing.processing;
 
-import com.visualsearch.indexing.image.PreparedImage;
+import com.visualsearch.indexing.processing.ImagePreparation.PreparedMedia;
 import com.visualsearch.indexing.messaging.ImageIndexingMessage.ImageItem;
 
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -14,12 +14,12 @@ import java.util.concurrent.Future;
 
 /** Holds at most one batch of preparation futures ahead of the consumer. */
 public final class PreparationPipeline implements AutoCloseable {
-    public record Outcome(ImageItem item, PreparedImage image, RuntimeException failure) {}
+    public record Outcome(ImageItem item, PreparedMedia media, RuntimeException failure) {}
 
     private final List<ImageItem> items;
     private final int batchSize;
     private final ThreadPoolTaskExecutor executor;
-    private final Function<ImageItem, PreparedImage> preparation;
+    private final Function<ImageItem, PreparedMedia> preparation;
     private final List<Future<Outcome>> futures = new ArrayList<>();
     private int consumed;
     private int submitted;
@@ -28,7 +28,7 @@ public final class PreparationPipeline implements AutoCloseable {
             List<ImageItem> items,
             int batchSize,
             ThreadPoolTaskExecutor executor,
-            Function<ImageItem, PreparedImage> preparation) {
+            Function<ImageItem, PreparedMedia> preparation) {
         this.items = items;
         this.batchSize = batchSize;
         this.executor = executor;

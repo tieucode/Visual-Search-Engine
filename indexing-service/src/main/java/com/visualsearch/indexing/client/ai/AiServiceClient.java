@@ -43,6 +43,14 @@ public class AiServiceClient {
     }
 
     public AiBatchResponse index(List<PreparedImage> images, Runnable onCallAccepted) {
+        return index(images, onCallAccepted, "/api/v1/indexing/batch");
+    }
+
+    public AiBatchResponse embed(List<PreparedImage> images, Runnable onCallAccepted) {
+        return index(images, onCallAccepted, "/api/v1/indexing/batch/embeddings");
+    }
+
+    private AiBatchResponse index(List<PreparedImage> images, Runnable onCallAccepted, String path) {
         if (images.isEmpty()) {
             return new AiBatchResponse(List.of());
         }
@@ -55,7 +63,7 @@ public class AiServiceClient {
         onCallAccepted.run();
 
         try {
-            AiBatchResponse response = executeIndexRequest(images);
+            AiBatchResponse response = executeIndexRequest(images, path);
             if (response.results().isEmpty()) {
                 throw new AiServiceException("AI service returned no result items", true);
             }
@@ -123,7 +131,7 @@ public class AiServiceClient {
         }
     }
 
-    private AiBatchResponse executeIndexRequest(List<PreparedImage> images) {
+    private AiBatchResponse executeIndexRequest(List<PreparedImage> images, String path) {
         MultiValueMap<String, Object> multipart = new LinkedMultiValueMap<>();
         for (PreparedImage image : images) {
             multipart.add("imageIds", image.imageId().toString());
@@ -134,7 +142,7 @@ public class AiServiceClient {
         AiBatchResponse response =
                 restClient
                         .post()
-                        .uri("/api/v1/indexing/batch")
+                        .uri(path)
                         .contentType(MediaType.MULTIPART_FORM_DATA)
                         .body(multipart)
                         .retrieve()
