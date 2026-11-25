@@ -5,6 +5,7 @@ import type { SearchImageData } from '../../types/search';
 import { recordRecommendationClick } from '../../services/recommendationService';
 import { SearchImage } from './SearchImage';
 import { useSearchWorkspace } from './SearchWorkspace';
+import { formatClipDuration } from '../../utils/format';
 
 /** Dimensions from the API reserve space before thumbnails load. Existing tiles do not move on append. */
 export function MasonryGrid({ items, featured, loading = false }: { items: SearchImageData[]; featured?: ReactNode; loading?: boolean }) {
@@ -59,7 +60,7 @@ export function MasonryGrid({ items, featured, loading = false }: { items: Searc
           key={item.imageId} to={`/images/${encodeURIComponent(item.imageId)}`}
           state={{ image: item, from: `${location.pathname}${location.search}` }}
           className="search-tile" style={layout.tiles[index]}
-          aria-label={`Xem chi tiết ảnh ${index + 1}`}
+          aria-label={`Xem chi tiết ${item.mediaKind === 'GIF' || item.mediaKind === 'VIDEO' ? 'clip' : 'ảnh'} ${index + 1}`}
           onClick={event => {
             if (event.defaultPrevented) return;
             if (location.pathname === '/') workspace.scrollY.current = window.scrollY;
@@ -71,6 +72,9 @@ export function MasonryGrid({ items, featured, loading = false }: { items: Searc
           }}
         >
           <SearchImage image={item} alt={`Kết quả tìm kiếm ${index + 1}`} />
+          {(item.mediaKind === 'GIF' || item.mediaKind === 'VIDEO') && !!item.durationMs && (
+            <span className="search-tile__media">{formatClipDuration(item.durationMs)}</span>
+          )}
           {item.rawTexts?.length ? <span className="search-tile__ocr" title={item.rawTexts.join(' · ')}>{item.rawTexts.join(' · ')}</span> : null}
           <span className="search-tile__open" aria-hidden="true"><ArrowUpRight size={20} /></span>
         </Link>

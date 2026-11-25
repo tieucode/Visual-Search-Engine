@@ -15,9 +15,9 @@ interface ImagesModalProps {
 export function ImagesModal({ items, onRemove, onZoom, onClear, onClose }: ImagesModalProps) {
   return (
     <Modal
-      label="Ảnh đã chọn"
+      label="Tệp đã chọn"
       onClose={onClose}
-      title={<><Images size={16} aria-hidden="true" />{formatNumber(items.length)} ảnh</>}
+      title={<><Images size={16} aria-hidden="true" />{formatNumber(items.length)} tệp</>}
       actions={
         <button type="button" className="icon-button icon-button--sm" onClick={onClear} aria-label="Xóa tất cả" title="Xóa tất cả">
           <Trash2 size={16} />

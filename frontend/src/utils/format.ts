@@ -26,3 +26,8 @@ export function shortName(name: string, max = 24): string {
   return `${name.slice(0, max - ext.length - 1)}…${ext}`;
 }
 
+export function formatClipDuration(milliseconds: number): string {
+  const seconds = Math.ceil(milliseconds / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+

@@ -10,6 +10,7 @@ export interface ChunkResult {
   batchId: string;
   uploadedCount: number;
   failedCount: number;
+  errors?: string[];
 }
 
 export interface BatchSummary {

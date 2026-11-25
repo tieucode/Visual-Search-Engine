@@ -4,8 +4,10 @@ import { releaseThumbnail } from '../utils/thumbnail';
 
 export const MAX_IMAGES = 1000;
 
-const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
-const EXTENSION_TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+const EXTENSION_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  gif: 'image/gif', mp4: 'video/mp4',
+};
 
 export interface QueueItem {
   id: number;
@@ -21,12 +23,6 @@ export interface AddReport {
 }
 
 let sequence = 0;
-
-function isSupported(file: File): boolean {
-  if (file.type) return ALLOWED_TYPES.has(file.type);
-  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-  return extension in EXTENSION_TYPES;
-}
 
 const fingerprint = (file: File) => `${file.name}:${file.size}`;
 
@@ -46,15 +42,20 @@ export function useImageQueue() {
     const accepted: QueueItem[] = [];
 
     for (const file of files) {
-      if (!isSupported(file)) { report.unsupported.push(file.name); continue; }
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const mime = Object.prototype.hasOwnProperty.call(EXTENSION_TYPES, extension) ? EXTENSION_TYPES[extension] : undefined;
+      const knownType = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
+      if (!mime || (knownType && knownType !== 'application/octet-stream' && knownType !== mime)) {
+        report.unsupported.push(file.name);
+        continue;
+      }
       if (file.size > MAX_IMAGE_FILE_BYTES) { report.oversized.push(file.name); continue; }
       const key = fingerprint(file);
       if (known.has(key)) { report.duplicates += 1; continue; }
       if (accepted.length >= room) { report.truncated += 1; continue; }
       known.add(key);
-      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-      const normalized = file.type ? file : new File([file], file.name, {
-        type: EXTENSION_TYPES[extension], lastModified: file.lastModified,
+      const normalized = file.type === mime ? file : new File([file], file.name, {
+        type: mime, lastModified: file.lastModified,
       });
       accepted.push({ id: ++sequence, file: normalized });
     }

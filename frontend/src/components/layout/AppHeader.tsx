@@ -17,9 +17,9 @@ export function AppHeader() {
 
         <HeaderSearch />
         <nav className="app-header__nav" aria-label="Điều hướng chính">
-          <NavLink to="/upload" className="app-header__nav-link" aria-label="Tải ảnh" title="Tải ảnh">
+          <NavLink to="/upload" className="app-header__nav-link" aria-label="Tải lên" title="Tải lên">
             <UploadCloud size={18} aria-hidden="true" />
-            <span>Tải ảnh</span>
+            <span>Tải lên</span>
           </NavLink>
           <button
             type="button"

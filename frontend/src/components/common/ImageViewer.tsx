@@ -11,6 +11,8 @@ interface ImageViewerProps {
   onPrevious?: () => void;
   onNext?: () => void;
   count?: string;
+  video?: boolean;
+  videoStartMs?: number;
 }
 
 function ViewerImage({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
@@ -39,8 +41,8 @@ function ViewerImage({ src, alt, onClose }: { src: string; alt: string; onClose:
   </div>;
 }
 
-/** Shared zoom viewer for remote search images and local upload previews. */
-export function ImageViewer({ src, alt, onClose, onPrevious, onNext, count }: ImageViewerProps) {
+/** Shared viewer for remote search images and local uploads. */
+export function ImageViewer({ src, alt, onClose, onPrevious, onNext, count, video = false, videoStartMs }: ImageViewerProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const helpId = useId();
   useEffect(() => {
@@ -57,20 +59,31 @@ export function ImageViewer({ src, alt, onClose, onPrevious, onNext, count }: Im
   }, []);
 
   return createPortal(<dialog
-    ref={dialogRef} className="image-viewer" aria-label="Ảnh phóng to" aria-describedby={helpId}
+    ref={dialogRef} className="image-viewer" aria-label={video ? (videoStartMs === undefined ? 'Xem trước clip' : 'Clip phóng to') : 'Ảnh phóng to'}
+    aria-describedby={video ? undefined : helpId}
     onCancel={event => { event.preventDefault(); onClose(); }}
     onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
+      else if (event.target instanceof HTMLVideoElement) return;
       else if (event.key === 'ArrowLeft' && onPrevious) { event.preventDefault(); event.stopPropagation(); onPrevious(); }
       else if (event.key === 'ArrowRight' && onNext) { event.preventDefault(); event.stopPropagation(); onNext(); }
     }}
     onClick={event => { if (event.target === event.currentTarget) onClose(); }}
   >
-    <p id={helpId} className="sr-only">Cuộn lên để phóng to nội dung trong khung ảnh, cuộn xuống để giảm độ phóng về mức ban đầu. Kéo ảnh đã phóng to để di chuyển. Dùng phím cộng, trừ để đổi độ phóng; phím 0 hoặc nhấn đúp ảnh để đặt lại.</p>
-    <button type="button" className="image-viewer__control image-viewer__close" aria-label="Đóng ảnh phóng to" onClick={onClose} autoFocus><X size={24} aria-hidden="true" /></button>
-    {onPrevious && <button type="button" className="image-viewer__control image-viewer__previous" aria-label="Ảnh trước" onClick={onPrevious}><ChevronLeft size={24} aria-hidden="true" /></button>}
-    {onNext && <button type="button" className="image-viewer__control image-viewer__next" aria-label="Ảnh tiếp theo" onClick={onNext}><ChevronRight size={24} aria-hidden="true" /></button>}
-    {src ? <ViewerImage key={src} src={src} alt={alt} onClose={onClose} /> : <span className="image-viewer__status" role="status" aria-label="Đang tải ảnh"><Loader2 size={24} aria-hidden="true" /></span>}
+    {!video && <p id={helpId} className="sr-only">Cuộn lên để phóng to nội dung trong khung ảnh, cuộn xuống để giảm độ phóng về mức ban đầu. Kéo ảnh đã phóng to để di chuyển. Dùng phím cộng, trừ để đổi độ phóng; phím 0 hoặc nhấn đúp ảnh để đặt lại.</p>}
+    <button type="button" className="image-viewer__control image-viewer__close" aria-label="Đóng trình xem" onClick={onClose} autoFocus><X size={24} aria-hidden="true" /></button>
+    {onPrevious && <button type="button" className="image-viewer__control image-viewer__previous" aria-label="Tệp trước" onClick={onPrevious}><ChevronLeft size={24} aria-hidden="true" /></button>}
+    {onNext && <button type="button" className="image-viewer__control image-viewer__next" aria-label="Tệp tiếp theo" onClick={onNext}><ChevronRight size={24} aria-hidden="true" /></button>}
+    {src ? (video
+      ? <video
+        key={src} className="image-viewer__video" src={src} aria-label={alt}
+        controls playsInline autoPlay={videoStartMs !== undefined}
+        onLoadedMetadata={event => {
+          if (videoStartMs) event.currentTarget.currentTime = videoStartMs / 1000;
+        }}
+      />
+      : <ViewerImage key={src} src={src} alt={alt} onClose={onClose} />)
+      : <span className="image-viewer__status" role="status" aria-label="Đang tải bản xem trước"><Loader2 size={24} aria-hidden="true" /></span>}
     {count && <span className="image-viewer__count" aria-live="polite">{count}</span>}
   </dialog>, document.body);
 }

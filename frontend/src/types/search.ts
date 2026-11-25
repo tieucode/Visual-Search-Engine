@@ -1,5 +1,6 @@
 export type SearchMode = 'image' | 'text' | 'ocr';
 export type SearchType = 'IMAGE_ONLY' | 'TEXT_SEMANTIC' | 'TEXT_OCR' | 'RECOMMENDATION';
+export type MediaKind = 'IMAGE' | 'GIF' | 'VIDEO';
 
 export const MAX_SEARCH_TEXT_LENGTH = 500;
 
@@ -14,6 +15,9 @@ export interface SearchImageData {
   width: number | null;
   height: number | null;
   score: number;
+  mediaKind?: MediaKind;
+  durationMs?: number | null;
+  matchedFrameMs?: number | null;
   /** Text recognized in the image, returned by OCR search. */
   rawTexts?: string[];
 }
