@@ -23,7 +23,7 @@ public class TextSearchService {
         pagination.validatePageSize(size);
         long started = System.nanoTime();
         var vector = embeddings.embedText(request.text());
-        var results = similarity.search(vector, 0, size);
+        var results = similarity.search(vector, 0, 0L, size);
         int duration = (int) Math.min(Integer.MAX_VALUE, (System.nanoTime() - started) / 1_000_000);
         UUID searchId = history.createTextSearch(user, request.text(), duration);
         return pagination.createPage(searchId, SearchType.TEXT_SEMANTIC, size, results);
@@ -34,7 +34,7 @@ public class TextSearchService {
         String text = history.getQueryText(searchId, user);
         var position = pagination.decodeCursor(cursor, searchId);
         var vector = embeddings.embedText(text);
-        var results = similarity.search(vector, position.offset(), position.size());
+        var results = similarity.search(vector, position.offset(), position.clipOffset(), position.size());
         return pagination.createPage(searchId, SearchType.TEXT_SEMANTIC, position.size(), results);
     }
 }

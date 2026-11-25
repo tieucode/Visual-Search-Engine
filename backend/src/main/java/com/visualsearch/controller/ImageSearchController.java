@@ -68,11 +68,13 @@ public class ImageSearchController {
             content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     public BaseResponse<SearchPageData<SearchImageData>> similar(
             @PathVariable UUID imageId,
+            @Parameter(description = "Representative clip frame timestamp in milliseconds. Defaults to the cover frame.")
+            @RequestParam(required = false) Integer frameMs,
             @Parameter(description = "Results per page; preserved in the cursor",
                     schema = @Schema(minimum = "1", maximum = "100", defaultValue = SearchPaginationService.DEFAULT_PAGE_SIZE))
             @RequestParam(defaultValue = SearchPaginationService.DEFAULT_PAGE_SIZE) int size,
             @Parameter(hidden = true) @AuthenticationPrincipal User user) {
-        return BaseResponse.of(201, "Similarity search created", imageSearch.startSimilar(imageId, size, user));
+        return BaseResponse.of(201, "Similarity search created", imageSearch.startSimilar(imageId, frameMs, size, user));
     }
 
     @GetMapping("/{searchId}/results")

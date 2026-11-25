@@ -7,8 +7,10 @@ import com.visualsearch.dto.search.SearchImageData;
 import com.visualsearch.entity.Image;
 import com.visualsearch.entity.User;
 import com.visualsearch.enums.ImageType;
+import com.visualsearch.enums.MediaKind;
 import com.visualsearch.enums.SearchType;
 import com.visualsearch.exception.SearchDependencyException;
+import com.visualsearch.exception.BadRequestException;
 import com.visualsearch.service.MinioStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,7 +35,7 @@ public class ImageSearchService {
         long started = System.nanoTime();
         var query = validator.validate(file);
         var vector = embeddings.embedImage(query.bytes(), query.filename(), query.contentType());
-        var results = similarity.search(vector, 0, size);
+        var results = similarity.search(vector, 0, 0L, size);
         String objectName = "search/" + UUID.randomUUID() + "." + query.format().name().toLowerCase(Locale.ROOT);
         try {
             storage.uploadImage(file, objectName);
@@ -52,22 +54,27 @@ public class ImageSearchService {
         return pagination.createPage(searchId, SearchType.IMAGE_ONLY, size, results);
     }
 
-    public SearchPageData<SearchImageData> startSimilar(UUID imageId, int size, User user) {
+    public SearchPageData<SearchImageData> startSimilar(UUID imageId, Integer frameMs, int size, User user) {
         pagination.validatePageSize(size);
         long started = System.nanoTime();
         Image image = history.getLibraryImage(imageId);
-        var results = similarity.searchSimilar(image.getId(), 0, size);
+        if (frameMs != null && (frameMs < 0 || frameMs >= 30_000 || image.getMediaKind() == MediaKind.IMAGE)) {
+            throw new BadRequestException("Invalid clip frame timestamp");
+        }
+        var results = similarity.searchSimilar(image, frameMs, 0, 0L, size);
         int duration = (int) Math.min(Integer.MAX_VALUE, (System.nanoTime() - started) / 1_000_000);
-        UUID searchId = history.createSimilarSearch(user, image.getId(), duration);
+        UUID searchId = history.createSimilarSearch(user, image.getId(), frameMs, duration);
         return pagination.createPage(searchId, SearchType.IMAGE_ONLY, size, results);
     }
 
     public SearchPageData<SearchImageData> next(UUID searchId, String cursor, User user) {
         // Check ownership before reading storage or calling any expensive dependency.
-        Image query = history.getQueryImage(searchId, user);
+        var storedQuery = history.getQueryImage(searchId, user);
+        Image query = storedQuery.image();
         var position = pagination.decodeCursor(cursor, searchId);
         if (query.getType() == ImageType.UPLOAD) {
-            var results = similarity.searchSimilar(query.getId(), position.offset(), position.size());
+            var results = similarity.searchSimilar(query, storedQuery.frameMs(),
+                    position.offset(), position.clipOffset(), position.size());
             return pagination.createPage(searchId, SearchType.IMAGE_ONLY, position.size(), results);
         }
 
@@ -75,7 +82,7 @@ public class ImageSearchService {
         String format = query.getFileFormat().name().toLowerCase(Locale.ROOT);
         var vector = embeddings.embedImage(bytes, "query." + format,
                 "image/" + (format.equals("jpg") ? "jpeg" : format));
-        var results = similarity.search(vector, position.offset(), position.size());
+        var results = similarity.search(vector, position.offset(), position.clipOffset(), position.size());
         // A continuation never inserts or updates history, even when retried or requested concurrently.
         return pagination.createPage(searchId, SearchType.IMAGE_ONLY, position.size(), results);
     }

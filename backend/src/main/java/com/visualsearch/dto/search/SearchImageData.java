@@ -1,6 +1,7 @@
 package com.visualsearch.dto.search;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.visualsearch.enums.MediaKind;
 
 import java.util.UUID;
 
@@ -18,4 +19,7 @@ public record SearchImageData(
         Integer height,
         @Schema(description = "Similarity score, or zero for recommendations from popularity and recency", example = "0.83",
                 requiredMode = Schema.RequiredMode.REQUIRED)
-        double score) {}
+        double score,
+        MediaKind mediaKind,
+        Integer durationMs,
+        Integer matchedFrameMs) {}

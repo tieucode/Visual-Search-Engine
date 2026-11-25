@@ -47,9 +47,11 @@ public class SearchHistoryService {
     private SearchHistoryData toHistoryData(SearchHistory history) {
         Image queryImage = history.getQueryImage();
         String imageUrl = queryImage == null ? null : storage.getPublicImageUrl(queryImage.getPath());
-        String thumbnailUrl = queryImage == null ? null
-                : queryImage.getThumbnailPath() == null ? imageUrl
-                : storage.getPresignedThumbnailUrl(queryImage.getThumbnailPath());
+        String thumbnailPath = queryImage == null ? null : queryImage.getThumbnailPath();
+        if (queryImage != null && history.getQueryFrameMs() != null) {
+            thumbnailPath = SimilaritySearchService.frameThumbnail(queryImage.getId(), history.getQueryFrameMs());
+        }
+        String thumbnailUrl = thumbnailPath == null ? imageUrl : storage.getPresignedThumbnailUrl(thumbnailPath);
         return new SearchHistoryData(history.getId(), history.getSearchType(), history.getQueryText(),
                 imageUrl, thumbnailUrl, history.getExecutionDurationMs(), history.getCreatedAt());
     }
@@ -91,19 +93,19 @@ public class SearchHistoryService {
     }
 
     @Transactional
-    public UUID createSimilarSearch(User user, UUID imageId, int durationMs) {
+    public UUID createSimilarSearch(User user, UUID imageId, Integer frameMs, int durationMs) {
         Image image = getLibraryImage(imageId);
         return histories.save(SearchHistory.builder().user(user).searchType(SearchType.IMAGE_ONLY)
-                .queryImage(image).executionDurationMs(durationMs).build()).getId();
+                .queryImage(image).queryFrameMs(frameMs).executionDurationMs(durationMs).build()).getId();
     }
 
     @Transactional(readOnly = true)
-    public Image getQueryImage(UUID searchId, User user) {
+    public ImageQuery getQueryImage(UUID searchId, User user) {
         SearchHistory history = getSearch(searchId, user, SearchType.IMAGE_ONLY);
         if (history.getQueryImage() == null) {
             throw new ResourceNotFoundException("Query image is no longer available");
         }
-        return history.getQueryImage();
+        return new ImageQuery(history.getQueryImage(), history.getQueryFrameMs());
     }
 
     @Transactional(readOnly = true)
@@ -119,4 +121,6 @@ public class SearchHistoryService {
         return histories.findByIdAndUserIdAndSearchType(searchId, user.getId(), searchType)
                 .orElseThrow(() -> new ResourceNotFoundException("Search not found"));
     }
+
+    public record ImageQuery(Image image, Integer frameMs) {}
 }
