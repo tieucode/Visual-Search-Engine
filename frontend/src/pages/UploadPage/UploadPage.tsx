@@ -60,10 +60,10 @@ export function UploadPage() {
     }
     if (report.oversized.length > 0) {
       toast('warning', report.oversized.length === 1
-        ? `${shortName(report.oversized[0])} vượt ${MAX_IMAGE_FILE_MB} MB`
-        : `${report.oversized.length} tệp vượt ${MAX_IMAGE_FILE_MB} MB`);
+        ? `${shortName(report.oversized[0])} vượt ${MAX_IMAGE_FILE_MB} MiB`
+        : `${report.oversized.length} tệp vượt ${MAX_IMAGE_FILE_MB} MiB`);
     }
-    if (report.truncated > 0) toast('warning', `Đã đạt tối đa ${formatNumber(MAX_IMAGES)} ảnh`);
+    if (report.truncated > 0) toast('warning', `Đã đạt tối đa ${formatNumber(MAX_IMAGES)} tệp`);
   }, [queue, toast]);
 
   async function handleUpload() {
@@ -75,10 +75,12 @@ export function UploadPage() {
       const { batchId } = await initBatch(files.length);
       let done = 0;
       let failed = 0;
+      let firstError: string | undefined;
       const chunks = splitUploadChunks(files);
       for (const [index, chunk] of chunks.entries()) {
         const result = await uploadChunk(batchId, chunk, index === chunks.length - 1);
         failed += result.failedCount;
+        firstError ??= result.errors?.[0];
         done += chunk.length;
         setProgress({ done, total: files.length });
       }
@@ -87,8 +89,8 @@ export function UploadPage() {
       await sleep(DONE_DELAY_MS);
       setProgress(null);
       queue.clear();
-      toast('success', `${formatNumber(files.length - failed)} ảnh đã được tải lên`);
-      if (failed > 0) toast('warning', `${formatNumber(failed)} ảnh lỗi`);
+      if (files.length > failed) toast('success', `${formatNumber(files.length - failed)} tệp đã được tải lên`);
+      if (failed > 0) toast('warning', firstError ?? `${formatNumber(failed)} tệp tải lên thất bại`);
     } catch (error) {
       setProgress(null);
       if (error instanceof ApiClientError && error.status === 401) {
@@ -103,9 +105,9 @@ export function UploadPage() {
 
   return (
     <main className="upload-page page-container page-container--grid">
-      <h1 className="sr-only">Tải ảnh</h1>
+      <h1 className="sr-only">Tải ảnh và clip</h1>
 
-      <section className="upload-main" aria-label="Tải ảnh">
+      <section className="upload-main" aria-label="Tải ảnh và clip">
         <DropZone count={queue.items.length} totalBytes={queue.totalBytes} disabled={uploading} onFiles={handleFiles} />
 
         {queue.items.length > 0 && (
@@ -113,7 +115,7 @@ export function UploadPage() {
             <PreviewStrip items={queue.items} onRemove={queue.remove} onZoom={setZoomId} onViewAll={() => setShowImages(true)} />
             <Button size="large" className="upload-submit" onClick={handleUpload} disabled={uploading}>
               <UploadCloud size={18} aria-hidden="true" />
-              Tải lên {formatNumber(queue.items.length)} ảnh
+              Tải lên {formatNumber(queue.items.length)} tệp
             </Button>
           </>
         )}
@@ -132,7 +134,7 @@ export function UploadPage() {
           {!loaded && Array.from({ length: 2 }, (_, index) => <div key={index} className="batch-skeleton skeleton" />)}
           {loaded && visibleBatches.map((batch) => <BatchCard key={batch.batchId} batch={batch} />)}
           {batchesError && <div className="batch-empty" role="status"><span>{batchesError}</span><Button variant="ghost" onClick={() => void refresh()}>Thử lại</Button></div>}
-          {loaded && !batchesError && batches.length === 0 && <div className="batch-empty"><Activity size={20} aria-hidden="true" />Chưa có ảnh đang xử lý</div>}
+          {loaded && !batchesError && batches.length === 0 && <div className="batch-empty"><Activity size={20} aria-hidden="true" />Chưa có tệp đang xử lý</div>}
         </div>
       </aside>
 

@@ -22,7 +22,7 @@ export function PreviewStrip({ items, onRemove, onZoom, onViewAll }: PreviewStri
           <Thumb file={item.file} onOpen={() => onZoom(item.id)} onRemove={() => onRemove(item.id)} />
         </div>
       ))}
-      <button type="button" className="strip-more" onClick={onViewAll} aria-label={`Xem tất cả ${items.length} ảnh`}>
+      <button type="button" className="strip-more" onClick={onViewAll} aria-label={`Xem tất cả ${items.length} tệp`}>
         <LayoutGrid size={16} />
         <span>{formatNumber(items.length)}</span>
       </button>

@@ -1,5 +1,6 @@
 
 import { getAccessToken } from "./authToken";
+import type { MediaKind } from "../types/search";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/api";
@@ -12,6 +13,8 @@ export interface UploadHistoryItem {
   height: number | null;
   fileSize: number | null;
   fileFormat: string;
+  mediaKind?: MediaKind;
+  durationMs?: number | null;
   type: string;
   createdAt: string;
 }

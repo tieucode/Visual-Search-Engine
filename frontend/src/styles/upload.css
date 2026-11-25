@@ -19,6 +19,7 @@
 .thumb--fill { width: 100%; height: auto; aspect-ratio: 1; }
 .thumb__open { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
 .thumb__open:focus-visible { outline-offset: -3px; }
+.thumb__clip-placeholder { display: grid; width: 100%; height: 100%; place-items: center; background: var(--bg-elevated); }
 .thumb img, .thumb__skeleton { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
 .thumb__remove { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-sm); background: var(--image-scrim); color: var(--text-on-image); opacity: 0; transition: opacity var(--duration-fast) var(--ease-out); }
 .thumb:hover .thumb__remove, .thumb:focus-within .thumb__remove { opacity: 1; }

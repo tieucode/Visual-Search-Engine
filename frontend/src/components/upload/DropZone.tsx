@@ -95,22 +95,22 @@ export function DropZone({ count, totalBytes, disabled, onFiles }: DropZoneProps
       data-active={active}
       role="button"
       tabIndex={0}
-      aria-label="Chọn ảnh để tải lên"
+      aria-label="Chọn ảnh hoặc clip để tải lên"
       aria-disabled={disabled}
       onClick={openPicker}
       onKeyDown={onKeyDown}
     >
       {count > 0 && (
-        <div className="upload-drop__stats" aria-label="Ảnh đã chọn">
-          <span className="upload-drop__stat-count">{formatNumber(count)} / {formatNumber(MAX_IMAGES)} ảnh</span>
+        <div className="upload-drop__stats" aria-label="Tệp đã chọn">
+          <span className="upload-drop__stat-count">{formatNumber(count)} / {formatNumber(MAX_IMAGES)} tệp</span>
           <span className="upload-drop__stat-size">{formatBytes(totalBytes)}</span>
         </div>
       )}
 
       <span className="upload-drop__icon"><UploadCloud size={24} strokeWidth={1.5} aria-hidden="true" /></span>
-      <p className="upload-drop__title">Kéo ảnh vào đây hoặc <span className="upload-drop__link">chọn ảnh</span></p>
+      <p className="upload-drop__title">Kéo ảnh hoặc clip vào đây hoặc <span className="upload-drop__link">chọn tệp</span></p>
       <div className="upload-drop__meta">
-        <span>JPG, PNG, WEBP · {MAX_IMAGE_FILE_MB} MB/ảnh</span>
+        <span>JPG, PNG, WebP, GIF, MP4 (H.264) · {MAX_IMAGE_FILE_MB} MiB/tệp · GIF/MP4 tối đa 30 giây</span>
         <span aria-hidden="true">·</span>
         <span>Dán bằng <kbd className="kbd">Ctrl + V</kbd></span>
       </div>
@@ -121,7 +121,7 @@ export function DropZone({ count, totalBytes, disabled, onFiles }: DropZoneProps
         type="file"
         disabled={disabled}
         multiple
-        accept="image/jpeg,image/png,image/webp"
+        accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,image/jpeg,image/png,image/webp,image/gif,video/mp4"
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
         onChange={(event) => {

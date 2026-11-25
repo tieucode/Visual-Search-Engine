@@ -43,7 +43,7 @@ export async function nextSearchPage(page: SearchPageData, signal: AbortSignal):
 export async function searchSimilarImages(image: SearchImageData, signal: AbortSignal): Promise<SearchPageData> {
   const response = await request<SearchPageData>({
     method: 'POST', url: `/search/image/${encodeURIComponent(image.imageId)}/similar`,
-    params: { size: SEARCH_PAGE_SIZE }, signal, timeout: SEARCH_TIMEOUT_MS,
+    params: { size: SEARCH_PAGE_SIZE, frameMs: image.matchedFrameMs ?? undefined }, signal, timeout: SEARCH_TIMEOUT_MS,
   });
   return parseSearchPage(response.data);
 }

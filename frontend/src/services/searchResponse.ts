@@ -4,6 +4,10 @@ function isDimension(value: unknown): boolean {
   return value === null || (typeof value === 'number' && Number.isInteger(value) && value > 0);
 }
 
+function isMilliseconds(value: unknown, minimum: number): boolean {
+  return value == null || (typeof value === 'number' && Number.isInteger(value) && value >= minimum);
+}
+
 export function isSearchImage(value: unknown): value is SearchImageData {
   if (typeof value !== 'object' || value === null) return false;
   const image = value as Partial<SearchImageData>;
@@ -11,6 +15,8 @@ export function isSearchImage(value: unknown): value is SearchImageData {
     typeof image.imageUrl === 'string' && image.imageUrl.length > 0 &&
     typeof image.thumbnailUrl === 'string' &&
     isDimension(image.width) && isDimension(image.height) &&
+    (image.mediaKind === undefined || image.mediaKind === 'IMAGE' || image.mediaKind === 'GIF' || image.mediaKind === 'VIDEO') &&
+    isMilliseconds(image.durationMs, 1) && isMilliseconds(image.matchedFrameMs, 0) &&
     typeof image.score === 'number' && Number.isFinite(image.score);
 }
 

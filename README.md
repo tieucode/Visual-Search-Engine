@@ -99,6 +99,14 @@ Worker đọc object key từ `images.path` và ký URL MinIO tại mỗi lần 
 với message cũ còn trong queue. Worker cần cùng bucket, endpoint, region và
 thông tin truy cập MinIO như backend.
 
+Batch upload nhận ảnh, GIF và MP4 H.264. GIF/MP4 giới hạn 20 MiB, 30 giây
+và 8.847.360 pixel, với mỗi chiều tối đa 4096 pixel.
+Khi chạy backend và worker ngoài Docker, cài `ffmpeg` và `ffprobe` trên `PATH`.
+Khi nâng cấp, dừng các worker cũ rồi cập nhật AI Service và backend. Sau khi
+backend chạy migration PostgreSQL, khởi động worker mới. Worker ghi vector clip vào
+`${QDRANT_COLLECTION}_clips` và ảnh đại diện vào bucket thumbnail. Ảnh và clip
+được xếp chung trong tìm kiếm ngữ nghĩa, tìm bằng ảnh và gợi ý.
+
 Để chạy bốn worker độc lập, mỗi worker xử lý tuần tự một message:
 
 ```bash
@@ -124,10 +132,9 @@ Message nghiệp vụ chỉ có dạng:
 }
 ```
 
-Worker gọi AI qua `POST /api/v1/indexing/batch` bằng multipart với các field lặp
-`imageIds` và `images`. AI phải trả kết quả riêng theo `imageId` để worker xử lý
-partial success. Phần hiện thực endpoint này thuộc AI Service và không nằm trong
-Indexing Service.
+Worker gọi `POST /api/v1/indexing/batch` cho ảnh và `POST /api/v1/indexing/batch/embeddings`
+cho frame clip. Cả hai nhận multipart với các field lặp `imageIds` và `images`.
+AI trả kết quả theo `imageId`. Endpoint cho frame clip chỉ chạy embedding.
 
 Hai list multipart được ghép theo cùng vị trí. Response tối thiểu:
 

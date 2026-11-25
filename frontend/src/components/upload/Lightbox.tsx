@@ -36,6 +36,7 @@ export function Lightbox({ items, currentId, onChange, onClose }: LightboxProps)
   return <ImageViewer
     src={preview?.file === current.file ? preview.src : null}
     alt={current.file.name}
+    video={current.file.type === 'video/mp4'}
     onClose={onClose}
     onPrevious={items.length > 1 ? () => go(-1) : undefined}
     onNext={items.length > 1 ? () => go(1) : undefined}
