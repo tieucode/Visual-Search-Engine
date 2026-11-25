@@ -104,7 +104,10 @@ public class MinioStorageService {
                     .toOutputStream(outputStream);
         }
 
-        byte[] thumbBytes = outputStream.toByteArray();
+        return uploadThumbnail(outputStream.toByteArray(), thumbnailObjectName);
+    }
+
+    public String uploadThumbnail(byte[] thumbBytes, String thumbnailObjectName) throws Exception {
         try (ByteArrayInputStream is = new ByteArrayInputStream(thumbBytes)) {
             minioClient.putObject(
                     PutObjectArgs.builder()
