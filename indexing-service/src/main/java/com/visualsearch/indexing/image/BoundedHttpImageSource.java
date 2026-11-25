@@ -48,7 +48,7 @@ public class BoundedHttpImageSource {
         HttpRequest request =
                 HttpRequest.newBuilder(uri)
                         .timeout(properties.getRequestTimeout())
-                        .header("Accept", "image/*")
+                        .header("Accept", "image/*, video/mp4")
                         .GET()
                         .build();
 

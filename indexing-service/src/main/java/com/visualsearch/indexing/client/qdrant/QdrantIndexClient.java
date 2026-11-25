@@ -28,6 +28,7 @@ public class QdrantIndexClient {
     private final RestClient restClient;
     private final IndexingProperties.Qdrant properties;
     private final AtomicBoolean collectionReady = new AtomicBoolean(false);
+    private final AtomicBoolean clipsReady = new AtomicBoolean(false);
 
     public QdrantIndexClient(IndexingProperties indexingProperties) {
         this.properties = indexingProperties.getQdrant();
@@ -42,6 +43,7 @@ public class QdrantIndexClient {
     public void initializeCollection() {
         try {
             ensureCollection();
+            ensureCollection(clipCollection(), clipsReady, true);
         } catch (QdrantOperationException exception) {
             log.warn("Qdrant collection is not ready at startup: {}", exception.getMessage());
         }
@@ -53,10 +55,7 @@ public class QdrantIndexClient {
         Map<UUID, QdrantOperationException> failures = new LinkedHashMap<>();
         List<Point> valid = new ArrayList<>();
         for (Point point : points) {
-            if (point.embedding() == null
-                    || point.embedding().size() != properties.getVectorSize()
-                    || point.embedding().stream()
-                            .anyMatch(value -> value == null || !Float.isFinite(value))) {
+            if (!validEmbedding(point.embedding())) {
                 failures.put(
                         point.imageId(),
                         new QdrantOperationException(
@@ -93,11 +92,35 @@ public class QdrantIndexClient {
 
     private void sendPoints(List<Point> points) {
         ensureCollection();
+        sendPoints(properties.getCollection(), collectionReady, points.stream().map(this::payload).toList());
+    }
+
+    public void upsertClip(UUID id, List<List<Float>> vectors, List<Integer> timestamps) {
+        if (vectors.isEmpty() || vectors.size() != timestamps.size()
+                || vectors.stream().anyMatch(vector -> !validEmbedding(vector))) {
+            throw new QdrantOperationException("Invalid clip embeddings", false);
+        }
+        String collection = clipCollection();
+        ensureCollection(collection, clipsReady, true);
+        sendPoints(collection, clipsReady, List.of(Map.of(
+                "id", id, "vector", vectors, "payload", Map.of("frameTimesMs", timestamps))));
+    }
+
+    private boolean validEmbedding(List<Float> vector) {
+        return vector != null && vector.size() == properties.getVectorSize()
+                && vector.stream().allMatch(value -> value != null && Float.isFinite(value));
+    }
+
+    private String clipCollection() {
+        return properties.getCollection() + "_clips";
+    }
+
+    private void sendPoints(String collection, AtomicBoolean ready, List<Map<String, Object>> points) {
         try {
             restClient
                     .put()
-                    .uri("/collections/{collection}/points?wait=true", properties.getCollection())
-                    .body(Map.of("points", points.stream().map(this::payload).toList()))
+                    .uri("/collections/{collection}/points?wait=true", collection)
+                    .body(Map.of("points", points))
                     .retrieve()
                     .onStatus(
                             status -> status.value() >= 400,
@@ -108,38 +131,42 @@ public class QdrantIndexClient {
                     .toBodilessEntity();
         } catch (QdrantOperationException exception) {
             if (exception.isRetryable()) {
-                collectionReady.set(false);
+                ready.set(false);
             }
             throw exception;
         } catch (ResourceAccessException exception) {
-            collectionReady.set(false);
+            ready.set(false);
             throw new QdrantOperationException("Qdrant connection failed", true, exception);
         } catch (RestClientException exception) {
-            collectionReady.set(false);
+            ready.set(false);
             throw new QdrantOperationException("Qdrant request failed", true, exception);
         }
     }
 
     public void ensureCollection() {
-        if (collectionReady.get()) return;
-        synchronized (collectionReady) {
-            if (!collectionReady.get()) inspectCollection();
+        ensureCollection(properties.getCollection(), collectionReady, false);
+    }
+
+    private void ensureCollection(String collection, AtomicBoolean ready, boolean clips) {
+        if (ready.get()) return;
+        synchronized (ready) {
+            if (!ready.get()) inspectCollection(collection, ready, clips);
         }
     }
 
-    private void inspectCollection() {
+    private void inspectCollection(String collection, AtomicBoolean ready, boolean clips) {
         try {
             restClient
                     .get()
-                    .uri("/collections/{collection}", properties.getCollection())
+                    .uri("/collections/{collection}", collection)
                     .retrieve()
                     .toBodilessEntity();
-            collectionReady.set(true);
+            ready.set(true);
         } catch (RestClientResponseException exception) {
             if (exception.getStatusCode().value() != 404) {
                 throw classifyStatus(exception.getStatusCode().value(), "inspect collection");
             }
-            createCollection();
+            createCollection(collection, ready, clips);
         } catch (ResourceAccessException exception) {
             throw new QdrantOperationException("Qdrant connection failed", true, exception);
         } catch (RestClientException exception) {
@@ -148,19 +175,19 @@ public class QdrantIndexClient {
         }
     }
 
-    private void createCollection() {
+    private void createCollection(String collection, AtomicBoolean ready, boolean clips) {
+        Map<String, Object> vectors = new LinkedHashMap<>();
+        vectors.put("size", properties.getVectorSize());
+        vectors.put("distance", "Cosine");
+        if (clips) {
+            vectors.put("multivector_config", Map.of("comparator", "max_sim"));
+            vectors.put("hnsw_config", Map.of("m", 0));
+        }
         try {
             restClient
                     .put()
-                    .uri("/collections/{collection}", properties.getCollection())
-                    .body(
-                            Map.of(
-                                    "vectors",
-                                    Map.of(
-                                            "size",
-                                            properties.getVectorSize(),
-                                            "distance",
-                                            "Cosine")))
+                    .uri("/collections/{collection}", collection)
+                    .body(Map.of("vectors", vectors))
                     .retrieve()
                     .onStatus(
                             status -> status.value() >= 400,
@@ -171,8 +198,8 @@ public class QdrantIndexClient {
                                 }
                             })
                     .toBodilessEntity();
-            collectionReady.set(true);
-            log.info("Qdrant collection '{}' is ready", properties.getCollection());
+            ready.set(true);
+            log.info("Qdrant collection '{}' is ready", collection);
         } catch (QdrantOperationException exception) {
             throw exception;
         } catch (ResourceAccessException exception) {

@@ -8,8 +8,10 @@ import com.visualsearch.indexing.exception.AiCircuitOpenException;
 import com.visualsearch.indexing.exception.AiServiceException;
 import com.visualsearch.indexing.exception.InvalidIndexingMessageException;
 import com.visualsearch.indexing.exception.PermanentImageException;
+import com.visualsearch.indexing.exception.QdrantOperationException;
 import com.visualsearch.indexing.exception.TransientDependencyException;
 import com.visualsearch.indexing.image.PreparedImage;
+import com.visualsearch.indexing.image.ClipFrameExtractor.Frame;
 import com.visualsearch.indexing.messaging.ImageIndexingMessage;
 import com.visualsearch.indexing.messaging.ImageIndexingMessage.ImageItem;
 import com.visualsearch.indexing.persistence.ImageState;
@@ -45,6 +47,7 @@ public class IndexingProcessor {
     private final IndexingStateService stateService;
     private final AiServiceClient aiServiceClient;
     private final QdrantIndexClient qdrantIndexClient;
+    private final ClipIndexer clipIndexer;
 
     public ProcessingResult process(ImageIndexingMessage message, int attempt) {
         long started = System.nanoTime();
@@ -73,7 +76,7 @@ public class IndexingProcessor {
                                 pending,
                                 properties.getAi().getBatchSize(),
                                 imagePreparationExecutor,
-                                item -> preparation.prepare(item.imageId(), states.get(item.imageId()).imagePath()))) {
+                                item -> preparation.prepare(states.get(item.imageId())))) {
                     while (pipeline.hasNext()) {
                         requireRunning();
                         if (!aiServiceClient.isAvailableForBusiness()) {
@@ -84,11 +87,16 @@ public class IndexingProcessor {
                         List<PreparedWork> prepared = new ArrayList<>();
                         for (var outcome : pipeline.next()) {
                             if (outcome.failure() == null) {
+                                var state = states.get(outcome.item().imageId());
+                                if (state.isClip()) {
+                                    processClip(outcome.item(), state, outcome.media().frames(), outcomes, progress);
+                                    continue;
+                                }
                                 prepared.add(
                                         new PreparedWork(
                                                 outcome.item(),
-                                                states.get(outcome.item().imageId()),
-                                                outcome.image()));
+                                                state,
+                                                outcome.media().image()));
                             } else if (outcome.failure()
                                     instanceof PermanentImageException failure) {
                                 outcomes.fail(outcome.item(), failure.getMessage(), -1);
@@ -114,6 +122,26 @@ public class IndexingProcessor {
                 TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
         return new ProcessingResult(
                 progress.retries, progress.succeeded, progress.failed, progress.skipped);
+    }
+
+    private void processClip(ImageItem item, ImageState state,
+                             List<Frame> frames,
+                             OutcomeGroup outcomes, Progress progress) {
+        requireRunning();
+        try {
+            clipIndexer.index(state, frames,
+                    () -> stateService.markRetryStarted(List.of(item.imageId()), outcomes.attempt));
+            outcomes.writes.put(item.imageId(), new IndexWrite(
+                    item.imageId(), IndexStatus.SUCCESS, outcomes.attempt, null, List.of(), true));
+        } catch (AiCircuitOpenException exception) {
+            progress.defer(List.of(item), outcomes.attempt);
+        } catch (AiServiceException exception) {
+            outcomes.failure(item, exception.getMessage(), exception.isRetryable());
+        } catch (QdrantOperationException exception) {
+            outcomes.failure(item, exception.getMessage(), exception.isRetryable());
+        } catch (TransientDependencyException exception) {
+            outcomes.transientFailure(item, exception.getMessage());
+        }
     }
 
     private void processPrepared(
