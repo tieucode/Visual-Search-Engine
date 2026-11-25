@@ -7,6 +7,7 @@ import com.visualsearch.entity.User;
 import com.visualsearch.enums.BatchStatus;
 import com.visualsearch.enums.ImageFormat;
 import com.visualsearch.enums.IndexStatus;
+import com.visualsearch.enums.MediaKind;
 import com.visualsearch.exception.BadRequestException;
 import com.visualsearch.repository.ImageIndexRepository;
 import jakarta.annotation.PostConstruct;
@@ -38,6 +39,7 @@ public class ImageUploadService {
     private final BatchService batchService;
     private final IndexingJobPersistenceService indexingJobPersistenceService;
     private final ImageIndexRepository imageIndexRepository;
+    private final ClipUploadProbe clipUploadProbe;
 
     @Qualifier("uploadExecutor")
     private final Executor uploadExecutor;
@@ -144,7 +146,7 @@ public class ImageUploadService {
         ImageFormat imageFormat = parseImageFormat(extension);
         if (imageFormat == null) {
             return SingleImageResult.failure(originalFilename + ": Unsupported format '" + extension
-                    + "'. Allowed formats: JPEG, JPG, PNG, WEBP");
+                    + "'. Allowed formats: JPEG, JPG, PNG, WEBP, GIF, MP4 (H.264)");
         }
 
         // Validate size
@@ -157,9 +159,20 @@ public class ImageUploadService {
         String thumbObjectName = null;
         boolean persisted = false;
         try {
-            validateImageContent(file, imageFormat);
-
-            ImageDimensions dimensions = readDimensions(file);
+            MediaKind kind = switch (imageFormat) {
+                case GIF -> MediaKind.GIF;
+                case MP4 -> MediaKind.VIDEO;
+                default -> MediaKind.IMAGE;
+            };
+            ClipUploadProbe.Clip clip = null;
+            ImageDimensions dimensions;
+            if (kind == MediaKind.IMAGE) {
+                validateImageContent(file, imageFormat);
+                dimensions = readDimensions(file);
+            } else {
+                clip = clipUploadProbe.inspect(file, imageFormat);
+                dimensions = new ImageDimensions(clip.width(), clip.height());
+            }
 
             // Đặt tên file ngẫu nhiên trên MinIO
             String fileId = UUID.randomUUID().toString();
@@ -170,7 +183,9 @@ public class ImageUploadService {
             minioStorageService.uploadImage(file, originalObjectName);
 
             // Sinh thumbnail và upload lên MinIO
-            try {
+            if (clip != null) {
+                minioStorageService.uploadThumbnail(clip.cover(), thumbObjectName);
+            } else try {
                 minioStorageService.uploadThumbnail(file, thumbObjectName);
             } catch (Exception e) {
                 log.warn("Thumbnail generation failed for {}: {}", originalFilename, e.getMessage());
@@ -187,11 +202,14 @@ public class ImageUploadService {
                     dimensions.width(),
                     dimensions.height(),
                     file.getSize(),
-                    imageFormat);
+                    imageFormat,
+                    kind,
+                    clip == null ? null : clip.durationMs());
             persisted = true;
             return SingleImageResult.success();
 
         } catch (Exception e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             if (!persisted) {
                 if (originalObjectName != null) {
                     minioStorageService.deleteImage(originalObjectName);
@@ -248,7 +266,7 @@ public class ImageUploadService {
         try {
             ImageFormat format = ImageFormat.valueOf(extension.toUpperCase(Locale.ROOT));
             return switch (format) {
-                case JPEG, JPG, PNG, WEBP -> format;
+                case JPEG, JPG, PNG, WEBP, GIF, MP4 -> format;
                 default -> null;
             };
         } catch (IllegalArgumentException e) {

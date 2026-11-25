@@ -51,7 +51,7 @@ public class ImageUploadController {
             @Parameter(description = "Marks this as the final upload request for the batch", example = "false")
             @RequestParam(defaultValue = "false") boolean isLast,
             @Parameter(
-                    description = "One to fifty JPEG, PNG, or WebP files. Swagger displays a file picker for this field.",
+                    description = "One to fifty JPEG, PNG, WebP, GIF or H.264 MP4 files. Clips are limited to 20 MiB and 30 seconds.",
                     required = true,
                     content = @Content(array = @ArraySchema(schema = @Schema(type = "string", format = "binary"))))
             @RequestPart("files") java.util.List<MultipartFile> files,

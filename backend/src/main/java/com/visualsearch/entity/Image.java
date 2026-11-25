@@ -2,6 +2,7 @@ package com.visualsearch.entity;
 
 import com.visualsearch.enums.ImageFormat;
 import com.visualsearch.enums.ImageType;
+import com.visualsearch.enums.MediaKind;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -43,6 +44,15 @@ public class Image extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "file_format", length = 20, nullable = false)
     private ImageFormat fileFormat;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "media_kind", nullable = false, length = 10,
+            columnDefinition = "varchar(10) default 'IMAGE'")
+    private MediaKind mediaKind = MediaKind.IMAGE;
+
+    @Column(name = "duration_ms")
+    private Integer durationMs;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", length = 20, nullable = false)

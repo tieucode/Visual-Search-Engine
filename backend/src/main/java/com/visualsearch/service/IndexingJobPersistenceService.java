@@ -8,6 +8,7 @@ import com.visualsearch.entity.User;
 import com.visualsearch.enums.ImageFormat;
 import com.visualsearch.enums.ImageType;
 import com.visualsearch.enums.IndexStatus;
+import com.visualsearch.enums.MediaKind;
 import com.visualsearch.repository.BatchIndexRepository;
 import com.visualsearch.repository.ImageIndexRepository;
 import com.visualsearch.repository.ImageRepository;
@@ -38,7 +39,9 @@ public class IndexingJobPersistenceService {
             int width,
             int height,
             long fileSize,
-            ImageFormat imageFormat) {
+            ImageFormat imageFormat,
+            MediaKind mediaKind,
+            Integer durationMs) {
         BatchIndex batch = batchIndexRepository.getReferenceById(batchId);
         User user = userRepository.getReferenceById(userId);
 
@@ -50,6 +53,8 @@ public class IndexingJobPersistenceService {
                 .height(height)
                 .fileSize(fileSize)
                 .fileFormat(imageFormat)
+                .mediaKind(mediaKind)
+                .durationMs(durationMs)
                 .type(ImageType.UPLOAD)
                 .build();
         image = imageRepository.save(image);
